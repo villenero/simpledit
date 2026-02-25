@@ -228,6 +228,233 @@ class EditorViewController: NSViewController {
         )
     }
 
+    // MARK: - Outline
+
+    func extractHeadings() -> [OutlineItem] {
+        guard let text = document?.text else { return [] }
+        var items: [OutlineItem] = []
+        let lines = text.components(separatedBy: "\n")
+        var inCodeBlock = false
+
+        for (index, line) in lines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            if trimmed.hasPrefix("```") {
+                inCodeBlock = !inCodeBlock
+                continue
+            }
+            if inCodeBlock { continue }
+
+            var level = 0
+            for char in trimmed {
+                if char == "#" { level += 1 }
+                else if char == " " && level > 0 { break }
+                else { level = 0; break }
+            }
+
+            if level > 0 && level <= 6 {
+                let title = String(trimmed.dropFirst(level + 1))
+                if !title.isEmpty {
+                    items.append(OutlineItem(title: title, level: level, lineIndex: index))
+                }
+            }
+        }
+
+        return items
+    }
+
+    func scrollToLine(_ lineIndex: Int) {
+        if isMarkdownMode {
+            // In markdown mode, scroll to the heading element in the web view
+            let js = """
+            (function() {
+                var headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+                var idx = \(headingIndexUpTo(lineIndex));
+                if (idx >= 0 && idx < headings.length) {
+                    headings[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            })();
+            """
+            webView.evaluateJavaScript(js, completionHandler: nil)
+        } else {
+            // In plain text mode, scroll to the line in the text view
+            let text = textView.string
+            let lines = text.components(separatedBy: "\n")
+            var charIndex = 0
+            for i in 0..<min(lineIndex, lines.count) {
+                charIndex += lines[i].count + 1 // +1 for newline
+            }
+            let range = NSRange(location: charIndex, length: 0)
+            textView.scrollRangeToVisible(range)
+            textView.showFindIndicator(for: NSRange(location: charIndex, length: min(lines[lineIndex].count, text.count - charIndex)))
+        }
+    }
+
+    /// Returns the heading index (among all headings) that corresponds to lineIndex
+    private func headingIndexUpTo(_ lineIndex: Int) -> Int {
+        guard let text = document?.text else { return 0 }
+        let lines = text.components(separatedBy: "\n")
+        var headingCount = -1
+        var inCodeBlock = false
+
+        for (index, line) in lines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") {
+                inCodeBlock = !inCodeBlock
+                continue
+            }
+            if inCodeBlock { continue }
+
+            var level = 0
+            for char in trimmed {
+                if char == "#" { level += 1 }
+                else if char == " " && level > 0 { break }
+                else { level = 0; break }
+            }
+            if level > 0 && level <= 6 {
+                let title = String(trimmed.dropFirst(level + 1))
+                if !title.isEmpty {
+                    headingCount += 1
+                }
+            }
+
+            if index == lineIndex { return headingCount }
+        }
+        return headingCount
+    }
+
+    // MARK: - Search
+
+    private var searchMatches: [NSRange] = []
+    private var searchCurrentIndex: Int = -1
+    private var lastSearchQuery: String = ""
+
+    struct SearchResult {
+        let current: Int  // 1-based, 0 if no matches
+        let total: Int
+    }
+
+    func performSearch(query: String) -> SearchResult {
+        lastSearchQuery = query
+        searchMatches = []
+        searchCurrentIndex = -1
+
+        guard !query.isEmpty else {
+            return SearchResult(current: 0, total: 0)
+        }
+
+        if isMarkdownMode {
+            return performMarkdownSearch(query: query)
+        } else {
+            return performPlainTextSearch(query: query)
+        }
+    }
+
+    private func performPlainTextSearch(query: String) -> SearchResult {
+        let text = textView.string as NSString
+        var searchRange = NSRange(location: 0, length: text.length)
+
+        while searchRange.location < text.length {
+            let range = text.range(of: query, options: .caseInsensitive, range: searchRange)
+            if range.location == NSNotFound { break }
+            searchMatches.append(range)
+            searchRange.location = range.location + range.length
+            searchRange.length = text.length - searchRange.location
+        }
+
+        if !searchMatches.isEmpty {
+            searchCurrentIndex = 0
+            let range = searchMatches[0]
+            textView.scrollRangeToVisible(range)
+            textView.showFindIndicator(for: range)
+        }
+
+        return SearchResult(
+            current: searchMatches.isEmpty ? 0 : 1,
+            total: searchMatches.count
+        )
+    }
+
+    private func performMarkdownSearch(query: String) -> SearchResult {
+        // Count matches in the raw text for the counter
+        guard let rawText = document?.text else {
+            return SearchResult(current: 0, total: 0)
+        }
+
+        let nsText = rawText as NSString
+        var searchRange = NSRange(location: 0, length: nsText.length)
+        while searchRange.location < nsText.length {
+            let range = nsText.range(of: query, options: .caseInsensitive, range: searchRange)
+            if range.location == NSNotFound { break }
+            searchMatches.append(range)
+            searchRange.location = range.location + range.length
+            searchRange.length = nsText.length - searchRange.location
+        }
+
+        if !searchMatches.isEmpty {
+            searchCurrentIndex = 0
+            scrollToMarkdownMatch(query: query, wrap: true)
+        }
+
+        return SearchResult(
+            current: searchMatches.isEmpty ? 0 : 1,
+            total: searchMatches.count
+        )
+    }
+
+    func searchNext() -> SearchResult {
+        guard !searchMatches.isEmpty else {
+            return SearchResult(current: 0, total: 0)
+        }
+
+        searchCurrentIndex = (searchCurrentIndex + 1) % searchMatches.count
+
+        if isMarkdownMode {
+            scrollToMarkdownMatch(query: lastSearchQuery, wrap: searchCurrentIndex == 0)
+        } else {
+            let range = searchMatches[searchCurrentIndex]
+            textView.scrollRangeToVisible(range)
+            textView.showFindIndicator(for: range)
+        }
+
+        return SearchResult(
+            current: searchCurrentIndex + 1,
+            total: searchMatches.count
+        )
+    }
+
+    private func scrollToMarkdownMatch(query: String, wrap: Bool) {
+        let escaped = query
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+            .replacingOccurrences(of: "\n", with: "\\n")
+        let js: String
+        if wrap {
+            js = """
+            (function() {
+                window.getSelection().removeAllRanges();
+                window.find('\(escaped)', false, false, true);
+            })();
+            """
+        } else {
+            js = """
+            (function() {
+                window.find('\(escaped)', false, false, false);
+            })();
+            """
+        }
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    func clearSearch() {
+        searchMatches = []
+        searchCurrentIndex = -1
+        lastSearchQuery = ""
+        if isMarkdownMode {
+            webView.evaluateJavaScript("window.getSelection().removeAllRanges();", completionHandler: nil)
+        }
+    }
+
     // MARK: - Menu Actions
 
     @objc func toggleWordWrap(_ sender: Any?) {

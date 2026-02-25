@@ -12,6 +12,10 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     private let containerView = DragContainerView()
     private var welcomeView: NSView!
 
+    private let outlineView = OutlineView()
+    private var isOutlineVisible = false
+    private var outlineWidth: CGFloat = 220
+
     private init() {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
@@ -62,6 +66,21 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
                                   height: contentFrame.height - tabBarHeight)
         editorView.autoresizingMask = [.width, .height]
         containerView.addSubview(editorView)
+
+        // Outline sidebar (hidden initially)
+        outlineView.frame = NSRect(x: -outlineWidth, y: 0,
+                                   width: outlineWidth,
+                                   height: contentFrame.height - tabBarHeight)
+        outlineView.autoresizingMask = [.height, .maxXMargin]
+        containerView.addSubview(outlineView)
+
+        outlineView.onItemSelected = { [weak self] item in
+            self?.editorViewController.scrollToLine(item.lineIndex)
+        }
+
+        outlineView.onResize = { [weak self] newWidth in
+            self?.resizeOutline(to: newWidth)
+        }
     }
 
     private func setupWelcomeView() {
@@ -181,6 +200,7 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         editorViewController.loadDocument(documents[index])
         updateTabBar()
         updateWindowTitle()
+        if isOutlineVisible { updateOutline() }
         window?.makeKeyAndOrderFront(nil)
     }
 
@@ -204,6 +224,67 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         window?.representedURL = doc.fileURL
     }
 
+    // MARK: - Outline
+
+    private func toggleOutline() {
+        let tabBarHeight: CGFloat = 38
+        let contentFrame = containerView.bounds
+        let editorView = editorViewController.view
+
+        isOutlineVisible.toggle()
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+            if isOutlineVisible {
+                outlineView.animator().frame = NSRect(
+                    x: 0, y: 0,
+                    width: outlineWidth,
+                    height: contentFrame.height - tabBarHeight)
+                editorView.animator().frame = NSRect(
+                    x: outlineWidth, y: 0,
+                    width: contentFrame.width - outlineWidth,
+                    height: contentFrame.height - tabBarHeight)
+            } else {
+                outlineView.animator().frame = NSRect(
+                    x: -outlineWidth, y: 0,
+                    width: outlineWidth,
+                    height: contentFrame.height - tabBarHeight)
+                editorView.animator().frame = NSRect(
+                    x: 0, y: 0,
+                    width: contentFrame.width,
+                    height: contentFrame.height - tabBarHeight)
+            }
+        }
+
+        if isOutlineVisible {
+            updateOutline()
+        }
+    }
+
+    private func resizeOutline(to newWidth: CGFloat) {
+        guard isOutlineVisible else { return }
+        let tabBarHeight: CGFloat = 38
+        let contentFrame = containerView.bounds
+        let editorView = editorViewController.view
+
+        outlineWidth = newWidth
+        outlineView.frame = NSRect(
+            x: 0, y: 0,
+            width: outlineWidth,
+            height: contentFrame.height - tabBarHeight)
+        editorView.frame = NSRect(
+            x: outlineWidth, y: 0,
+            width: contentFrame.width - outlineWidth,
+            height: contentFrame.height - tabBarHeight)
+    }
+
+    private func updateOutline() {
+        let items = editorViewController.extractHeadings()
+        outlineView.update(items: items)
+    }
+
     // MARK: - TabBarViewDelegate
 
     func tabBar(_ tabBar: TabBarView, didSelectTabAt index: Int) {
@@ -212,6 +293,30 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
 
     func tabBar(_ tabBar: TabBarView, didCloseTabAt index: Int) {
         closeDocument(at: index)
+    }
+
+    func tabBarDidToggleOutline(_ tabBar: TabBarView) {
+        toggleOutline()
+    }
+
+    func tabBar(_ tabBar: TabBarView, didSearch query: String) {
+        let result = editorViewController.performSearch(query: query)
+        tabBar.updateSearchCount(current: result.current, total: result.total)
+    }
+
+    func tabBarDidSearchNext(_ tabBar: TabBarView) {
+        let result = editorViewController.searchNext()
+        tabBar.updateSearchCount(current: result.current, total: result.total)
+    }
+
+    func tabBarDidEndSearch(_ tabBar: TabBarView) {
+        editorViewController.clearSearch()
+    }
+
+    // MARK: - Find
+
+    @objc func focusSearch(_ sender: Any?) {
+        tabBar.focusSearchField()
     }
 
     // MARK: - Show
