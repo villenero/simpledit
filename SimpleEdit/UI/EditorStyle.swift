@@ -104,7 +104,7 @@ struct EditorStyle {
 
 extension EditorStyle {
 
-    static let all: [EditorStyle] = [light, dark, vintageTerminal, elegant]
+    static let all: [EditorStyle] = [light, dark, vintageTerminal, elegant, nord, solarized]
 
     static let light = EditorStyle(
         name: "Light",
@@ -169,6 +169,50 @@ extension EditorStyle {
             tableBorderColor: "rgba(51,255,0,0.25)",
             thBg: "rgba(51,255,0,0.08)",
             trEvenBg: "rgba(51,255,0,0.04)"
+        )
+    )
+
+    static let nord = EditorStyle(
+        name: "Nord",
+        font: .monospacedSystemFont(ofSize: 13, weight: .regular),
+        textColor: NSColor(red: 0xd8/255.0, green: 0xde/255.0, blue: 0xe9/255.0, alpha: 1),
+        backgroundColor: NSColor(red: 0x2e/255.0, green: 0x34/255.0, blue: 0x40/255.0, alpha: 1),
+        css: CSSTokens(
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif",
+            fontSize: "14px",
+            bodyColor: "#d8dee9",
+            bodyBg: "#2e3440",
+            linkColor: "#88c0d0",
+            codeBg: "rgba(136,192,208,0.08)",
+            codeFontFamily: "'SF Mono', Menlo, monospace",
+            blockquoteBorderColor: "#88c0d0",
+            blockquoteTextColor: "#81a1c1",
+            hrColor: "#4c566a",
+            tableBorderColor: "#4c566a",
+            thBg: "rgba(136,192,208,0.08)",
+            trEvenBg: "rgba(136,192,208,0.04)"
+        )
+    )
+
+    static let solarized = EditorStyle(
+        name: "Solarized",
+        font: NSFont(name: "Menlo", size: 13) ?? .monospacedSystemFont(ofSize: 13, weight: .regular),
+        textColor: NSColor(red: 0x65/255.0, green: 0x7b/255.0, blue: 0x83/255.0, alpha: 1),
+        backgroundColor: NSColor(red: 0xfd/255.0, green: 0xf6/255.0, blue: 0xe3/255.0, alpha: 1),
+        css: CSSTokens(
+            fontFamily: "Menlo, 'SF Mono', monospace",
+            fontSize: "13px",
+            bodyColor: "#657b83",
+            bodyBg: "#fdf6e3",
+            linkColor: "#268bd2",
+            codeBg: "rgba(38,139,210,0.06)",
+            codeFontFamily: "Menlo, 'SF Mono', monospace",
+            blockquoteBorderColor: "#268bd2",
+            blockquoteTextColor: "#93a1a1",
+            hrColor: "#eee8d5",
+            tableBorderColor: "#eee8d5",
+            thBg: "rgba(38,139,210,0.06)",
+            trEvenBg: "rgba(38,139,210,0.03)"
         )
     )
 

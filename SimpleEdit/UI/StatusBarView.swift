@@ -28,8 +28,10 @@ class StatusBarView: NSView {
 
         // Style dropdown
         stylePopUp.removeAllItems()
-        for style in EditorStyle.all {
-            stylePopUp.addItem(withTitle: style.name)
+        for (i, style) in EditorStyle.all.enumerated() {
+            let item = NSMenuItem(title: style.name, action: nil, keyEquivalent: "\(i + 1)")
+            item.keyEquivalentModifierMask = [.command]
+            stylePopUp.menu?.addItem(item)
         }
         stylePopUp.font = NSFont.systemFont(ofSize: 11)
         stylePopUp.controlSize = .small
