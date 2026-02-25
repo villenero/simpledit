@@ -4,7 +4,7 @@
 
 ---
 
-## 1. Decisión tecnológica
+1. Decisión tecnológica
 
 ### Comparativa resumida
 

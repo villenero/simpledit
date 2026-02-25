@@ -29,6 +29,7 @@ class EditorViewController: NSViewController, NSTextStorageDelegate {
     private var wordWrapEnabled: Bool = true
     private var isMarkdownToolbarVisible: Bool = false
     private var isPreviewVisible: Bool = false
+    private(set) var isEditing: Bool = false
 
     // MARK: - Lifecycle
 
@@ -75,7 +76,7 @@ class EditorViewController: NSViewController, NSTextStorageDelegate {
         layoutManager.addTextContainer(textContainer)
 
         textView = SimpleTextView(frame: NSRect(origin: .zero, size: contentSize), textContainer: textContainer)
-        textView.isEditable = true
+        textView.isEditable = false
         textView.isSelectable = true
         textView.allowsUndo = true
         textView.isRichText = false
@@ -147,14 +148,62 @@ class EditorViewController: NSViewController, NSTextStorageDelegate {
         if doc.isMarkdown {
             viewMode = .styledSource
             switchToMarkdownStorage()
-            showMarkdownToolbar(true)
         } else {
             viewMode = .source
             switchToPlainStorage()
-            showMarkdownToolbar(false)
         }
 
+        // Default: view-only mode
+        enterViewMode()
         updateStatusBar()
+    }
+
+    // MARK: - View / Edit Mode Toggle
+
+    func enterViewMode() {
+        isEditing = false
+        textView.isEditable = false
+        showMarkdownToolbar(false)
+
+        // In view mode for markdown: hide syntax markers for clean reading
+        if document?.isMarkdown == true {
+            markdownStyler.hideMarkers = true
+            viewMode = .styledSource
+            switchToMarkdownStorage()
+        }
+
+        // Notify the window controller to update toolbar button
+        if let wc = view.window?.windowController as? DocumentWindowController {
+            wc.updateEditButton()
+        }
+    }
+
+    func enterEditMode() {
+        isEditing = true
+        textView.isEditable = true
+
+        // In edit mode: show syntax markers
+        if document?.isMarkdown == true {
+            markdownStyler.hideMarkers = false
+            showMarkdownToolbar(true)
+            applyMarkdownStyling()
+        }
+
+        // Notify the window controller to update toolbar button
+        if let wc = view.window?.windowController as? DocumentWindowController {
+            wc.updateEditButton()
+        }
+
+        // Focus the text view
+        view.window?.makeFirstResponder(textView)
+    }
+
+    @objc func toggleEditMode(_ sender: Any?) {
+        if isEditing {
+            enterViewMode()
+        } else {
+            enterEditMode()
+        }
     }
 
     // MARK: - Markdown Storage Switching
@@ -238,7 +287,12 @@ class EditorViewController: NSViewController, NSTextStorageDelegate {
         default: encodingName = "UTF-8"
         }
 
-        let modeLabel = document?.isMarkdown == true ? "Markdown" : "Plain Text"
+        let modeLabel: String
+        if document?.isMarkdown == true {
+            modeLabel = isEditing ? "Markdown (Editing)" : "Markdown"
+        } else {
+            modeLabel = isEditing ? "Plain Text (Editing)" : "Plain Text"
+        }
 
         statusBar.update(
             words: wordCount,

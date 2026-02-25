@@ -2,6 +2,8 @@ import Cocoa
 
 class MarkdownStyler {
 
+    var hideMarkers: Bool = false
+
     // Cache paragraph styles to avoid recreating them
     private let blockquoteParagraphStyle: NSMutableParagraphStyle = {
         let style = NSMutableParagraphStyle()
@@ -16,6 +18,14 @@ class MarkdownStyler {
         style.firstLineHeadIndent = 8
         return style
     }()
+
+    // Attributes to make markers invisible
+    private var hiddenAttrs: [NSAttributedString.Key: Any] {
+        [
+            .font: NSFont.systemFont(ofSize: 0.1),
+            .foregroundColor: NSColor.clear
+        ]
+    }
 
     func apply(nodes: [MarkdownNode], to storage: NSTextStorage) {
         storage.beginEditing()
@@ -35,15 +45,26 @@ class MarkdownStyler {
                 case 5: font = ThemeManager.Fonts.heading5()
                 default: font = ThemeManager.Fonts.heading6()
                 }
-                storage.addAttributes([
-                    .font: font,
-                    .foregroundColor: ThemeManager.Colors.heading
-                ], range: node.range)
 
-                // Dim the # markers
+                // Apply heading style to content only
+                if node.contentRange.length > 0 {
+                    storage.addAttributes([
+                        .font: font,
+                        .foregroundColor: ThemeManager.Colors.heading
+                    ], range: node.contentRange)
+                }
+
+                // Handle # markers
                 let markerRange = NSRange(location: node.range.location, length: level + 1)
                 if markerRange.location + markerRange.length <= storage.length {
-                    storage.addAttribute(.foregroundColor, value: ThemeManager.Colors.syntaxMarker, range: markerRange)
+                    if hideMarkers {
+                        storage.addAttributes(hiddenAttrs, range: markerRange)
+                    } else {
+                        storage.addAttributes([
+                            .font: font,
+                            .foregroundColor: ThemeManager.Colors.syntaxMarker
+                        ], range: markerRange)
+                    }
                 }
 
             case .bold:
@@ -51,31 +72,30 @@ class MarkdownStyler {
                     .font: ThemeManager.Fonts.bold(),
                     .foregroundColor: ThemeManager.Colors.bold
                 ], range: node.contentRange)
-                // Dim markers **
-                dimMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
+                styleMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
 
             case .italic:
                 storage.addAttributes([
                     .font: ThemeManager.Fonts.italic(),
                     .foregroundColor: ThemeManager.Colors.italic
                 ], range: node.contentRange)
-                dimMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
+                styleMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
 
             case .boldItalic:
                 storage.addAttributes([
                     .font: ThemeManager.Fonts.boldItalic(),
                     .foregroundColor: ThemeManager.Colors.bold
                 ], range: node.contentRange)
-                dimMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
+                styleMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
 
             case .code:
+                // Style the content (without backticks)
                 storage.addAttributes([
                     .font: ThemeManager.Fonts.code(),
                     .foregroundColor: ThemeManager.Colors.code,
                     .backgroundColor: ThemeManager.Colors.codeBackground
-                ], range: node.range)
-                // Dim backticks
-                dimMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
+                ], range: node.contentRange)
+                styleMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
 
             case .codeBlock:
                 storage.addAttributes([
@@ -83,46 +103,83 @@ class MarkdownStyler {
                     .foregroundColor: ThemeManager.Colors.code,
                     .backgroundColor: ThemeManager.Colors.codeBackground
                 ], range: node.range)
+                // Hide the ``` fence lines in view mode
+                if hideMarkers {
+                    hideFenceLines(storage: storage, range: node.range)
+                }
 
             case .link(let url, _):
-                storage.addAttributes([
-                    .foregroundColor: ThemeManager.Colors.link,
-                    .underlineStyle: NSUnderlineStyle.single.rawValue,
-                    .link: url,
-                    .cursor: NSCursor.pointingHand
-                ], range: node.range)
+                if hideMarkers {
+                    // Show only the link text, hide [, ](url)
+                    storage.addAttributes([
+                        .foregroundColor: ThemeManager.Colors.link,
+                        .underlineStyle: NSUnderlineStyle.single.rawValue,
+                        .link: url,
+                        .cursor: NSCursor.pointingHand
+                    ], range: node.contentRange)
+                    styleMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
+                } else {
+                    storage.addAttributes([
+                        .foregroundColor: ThemeManager.Colors.link,
+                        .underlineStyle: NSUnderlineStyle.single.rawValue,
+                        .link: url,
+                        .cursor: NSCursor.pointingHand
+                    ], range: node.range)
+                }
 
             case .image(_, _):
-                storage.addAttributes([
-                    .foregroundColor: ThemeManager.Colors.link,
-                    .underlineStyle: NSUnderlineStyle.single.rawValue
-                ], range: node.range)
+                if hideMarkers {
+                    storage.addAttributes([
+                        .foregroundColor: ThemeManager.Colors.link,
+                        .underlineStyle: NSUnderlineStyle.single.rawValue
+                    ], range: node.contentRange)
+                    styleMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
+                } else {
+                    storage.addAttributes([
+                        .foregroundColor: ThemeManager.Colors.link,
+                        .underlineStyle: NSUnderlineStyle.single.rawValue
+                    ], range: node.range)
+                }
 
             case .blockquote:
                 storage.addAttributes([
                     .foregroundColor: ThemeManager.Colors.blockquoteText,
                     .paragraphStyle: blockquoteParagraphStyle
-                ], range: node.range)
-                // Dim > marker
+                ], range: node.contentRange)
+                // Hide or dim > marker
                 let markerRange = NSRange(location: node.range.location, length: min(2, node.range.length))
-                storage.addAttribute(.foregroundColor, value: ThemeManager.Colors.syntaxMarker, range: markerRange)
+                if markerRange.location + markerRange.length <= storage.length {
+                    if hideMarkers {
+                        storage.addAttributes(hiddenAttrs, range: markerRange)
+                    } else {
+                        storage.addAttribute(.foregroundColor, value: ThemeManager.Colors.syntaxMarker, range: markerRange)
+                    }
+                }
 
             case .unorderedList, .orderedList:
                 storage.addAttribute(.paragraphStyle, value: listParagraphStyle, range: node.range)
 
             case .horizontalRule:
-                storage.addAttributes([
-                    .foregroundColor: ThemeManager.Colors.horizontalRule,
-                    .strikethroughStyle: NSUnderlineStyle.single.rawValue,
-                    .strikethroughColor: ThemeManager.Colors.horizontalRule
-                ], range: node.range)
+                if hideMarkers {
+                    storage.addAttributes([
+                        .foregroundColor: NSColor.clear,
+                        .strikethroughStyle: NSUnderlineStyle.thick.rawValue,
+                        .strikethroughColor: ThemeManager.Colors.horizontalRule
+                    ], range: node.range)
+                } else {
+                    storage.addAttributes([
+                        .foregroundColor: ThemeManager.Colors.horizontalRule,
+                        .strikethroughStyle: NSUnderlineStyle.single.rawValue,
+                        .strikethroughColor: ThemeManager.Colors.horizontalRule
+                    ], range: node.range)
+                }
 
             case .strikethrough:
                 storage.addAttributes([
                     .strikethroughStyle: NSUnderlineStyle.single.rawValue,
                     .foregroundColor: ThemeManager.Colors.strikethrough
                 ], range: node.contentRange)
-                dimMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
+                styleMarkers(storage: storage, fullRange: node.range, contentRange: node.contentRange)
 
             case .checkbox:
                 break
@@ -132,7 +189,11 @@ class MarkdownStyler {
         storage.endEditing()
     }
 
-    private func dimMarkers(storage: NSTextStorage, fullRange: NSRange, contentRange: NSRange) {
+    private func styleMarkers(storage: NSTextStorage, fullRange: NSRange, contentRange: NSRange) {
+        let attrs: [NSAttributedString.Key: Any] = hideMarkers
+            ? hiddenAttrs
+            : [.foregroundColor: ThemeManager.Colors.syntaxMarker]
+
         // Before content
         if contentRange.location > fullRange.location {
             let beforeRange = NSRange(
@@ -140,7 +201,7 @@ class MarkdownStyler {
                 length: contentRange.location - fullRange.location
             )
             if beforeRange.location + beforeRange.length <= storage.length {
-                storage.addAttribute(.foregroundColor, value: ThemeManager.Colors.syntaxMarker, range: beforeRange)
+                storage.addAttributes(attrs, range: beforeRange)
             }
         }
         // After content
@@ -149,7 +210,32 @@ class MarkdownStyler {
         if afterStart < afterEnd {
             let afterRange = NSRange(location: afterStart, length: afterEnd - afterStart)
             if afterRange.location + afterRange.length <= storage.length {
-                storage.addAttribute(.foregroundColor, value: ThemeManager.Colors.syntaxMarker, range: afterRange)
+                storage.addAttributes(attrs, range: afterRange)
+            }
+        }
+    }
+
+    private func hideFenceLines(storage: NSTextStorage, range: NSRange) {
+        let text = storage.string as NSString
+        let blockText = text.substring(with: range)
+        let lines = blockText.components(separatedBy: "\n")
+        guard lines.count >= 2 else { return }
+
+        // Hide first line (```lang)
+        let firstLineLength = (lines[0] as NSString).length
+        if firstLineLength > 0 {
+            let firstLineRange = NSRange(location: range.location, length: firstLineLength)
+            storage.addAttributes(hiddenAttrs, range: firstLineRange)
+        }
+
+        // Hide last line (```)
+        let lastLine = lines[lines.count - 1]
+        let lastLineLength = (lastLine as NSString).length
+        if lastLineLength > 0 {
+            let lastLineStart = range.location + range.length - lastLineLength
+            let lastLineRange = NSRange(location: lastLineStart, length: lastLineLength)
+            if lastLineRange.location >= range.location {
+                storage.addAttributes(hiddenAttrs, range: lastLineRange)
             }
         }
     }
