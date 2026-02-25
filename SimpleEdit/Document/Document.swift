@@ -46,8 +46,9 @@ class Document: NSDocument {
     // MARK: - Window Controller
 
     override func makeWindowControllers() {
-        let controller = DocumentWindowController()
-        addWindowController(controller)
+        let mainWC = MainWindowController.shared
+        addWindowController(mainWC)
+        mainWC.openDocument(self)
     }
 
     // MARK: - Document Types

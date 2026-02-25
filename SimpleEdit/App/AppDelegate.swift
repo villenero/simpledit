@@ -11,17 +11,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
 
         // Set Dock icon
-        if let iconPath = Bundle.main.path(forResource: "icon", ofType: "png") {
-            NSApp.applicationIconImage = NSImage(contentsOfFile: iconPath)
-        } else if let iconPath = Bundle.main.executableURL?
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Resources/icon.png").path,
-            FileManager.default.fileExists(atPath: iconPath) {
-            NSApp.applicationIconImage = NSImage(contentsOfFile: iconPath)
-        }
+        NSApp.applicationIconImage = makeAppIcon(size: 512)
 
         setupMainMenu()
+
+        // Ensure main window is ready
+        MainWindowController.shared.showWindow()
 
         // Open files passed as command-line arguments
         let args = ProcessInfo.processInfo.arguments.dropFirst()
@@ -29,10 +24,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for arg in args {
             let url = URL(fileURLWithPath: arg)
             if FileManager.default.fileExists(atPath: url.path) {
-                NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { doc, _, _ in
-                    // Bring window to front
-                    doc?.windowControllers.first?.window?.makeKeyAndOrderFront(nil)
-                }
+                NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, _ in }
                 openedFile = true
             }
         }
@@ -58,7 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // App menu
         let appMenuItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About SimpleEdit", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "About SimpleEdit", action: #selector(showAbout(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Preferences…", action: #selector(showPreferences(_:)), keyEquivalent: ",")
         appMenu.addItem(.separator())
@@ -121,5 +113,107 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showPreferences(_ sender: Any?) {
         PreferencesWindowController.shared.showWindow(sender)
+    }
+
+    @objc private func showAbout(_ sender: Any?) {
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: "SimpleEdit",
+            .applicationVersion: "1.0.0",
+            .version: "1",
+            .credits: NSAttributedString(
+                string: "A lightweight native macOS viewer for plain text and Markdown files.",
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 11),
+                    .foregroundColor: NSColor.secondaryLabelColor
+                ]
+            ),
+            .applicationIcon: NSApp.applicationIconImage as Any
+        ])
+    }
+
+    // MARK: - App Icon
+
+    private func makeAppIcon(size: CGFloat) -> NSImage {
+        let image = NSImage(size: NSSize(width: size, height: size))
+        image.lockFocus()
+
+        let padding = size * 0.08
+        let pageRect = NSRect(x: padding, y: padding,
+                              width: size - padding * 2, height: size - padding * 2)
+        let cornerRadius = size * 0.08
+
+        // Shadow
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.3)
+        shadow.shadowOffset = NSSize(width: 0, height: -size * 0.02)
+        shadow.shadowBlurRadius = size * 0.04
+        shadow.set()
+
+        // Page background
+        let page = NSBezierPath(roundedRect: pageRect, xRadius: cornerRadius, yRadius: cornerRadius)
+        NSColor.white.setFill()
+        page.fill()
+
+        // Remove shadow for subsequent drawing
+        NSShadow().set()
+
+        // Page border
+        NSColor(white: 0.82, alpha: 1).setStroke()
+        page.lineWidth = size * 0.005
+        page.stroke()
+
+        // Dog-ear fold (top-right corner)
+        let foldSize = size * 0.12
+        let foldX = pageRect.maxX - foldSize
+        let foldY = pageRect.maxY - foldSize
+        let fold = NSBezierPath()
+        fold.move(to: NSPoint(x: foldX, y: pageRect.maxY))
+        fold.line(to: NSPoint(x: pageRect.maxX, y: foldY))
+        fold.line(to: NSPoint(x: foldX, y: foldY))
+        fold.close()
+        NSColor(white: 0.92, alpha: 1).setFill()
+        fold.fill()
+        NSColor(white: 0.78, alpha: 1).setStroke()
+        fold.lineWidth = size * 0.004
+        fold.stroke()
+
+        // Text lines
+        let lineInset = size * 0.18
+        let lineHeight = size * 0.028
+        let lineSpacing = size * 0.06
+        let startY = pageRect.maxY - size * 0.28
+
+        // Title line (thicker, like a heading)
+        let titleRect = NSRect(x: lineInset, y: startY,
+                               width: size * 0.40, height: lineHeight * 1.6)
+        NSColor(calibratedRed: 0.2, green: 0.2, blue: 0.25, alpha: 1).setFill()
+        NSBezierPath(roundedRect: titleRect, xRadius: lineHeight * 0.4, yRadius: lineHeight * 0.4).fill()
+
+        // Body lines
+        let bodyColor = NSColor(white: 0.62, alpha: 1)
+        let lineWidths: [CGFloat] = [0.58, 0.52, 0.62, 0.45, 0.55, 0.38]
+        for (i, widthFraction) in lineWidths.enumerated() {
+            let y = startY - lineSpacing * CGFloat(i + 1) - lineHeight
+            let rect = NSRect(x: lineInset, y: y,
+                              width: size * widthFraction, height: lineHeight)
+            bodyColor.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: lineHeight * 0.4, yRadius: lineHeight * 0.4).fill()
+        }
+
+        // Markdown "#" accent in top-left area
+        let hashStr = "#" as NSString
+        let hashFont = NSFont.systemFont(ofSize: size * 0.13, weight: .bold)
+        let hashAttrs: [NSAttributedString.Key: Any] = [
+            .font: hashFont,
+            .foregroundColor: NSColor(calibratedRed: 0.30, green: 0.55, blue: 0.95, alpha: 0.85)
+        ]
+        let hashSize = hashStr.size(withAttributes: hashAttrs)
+        hashStr.draw(at: NSPoint(x: lineInset - hashSize.width - size * 0.02,
+                                  y: startY - hashSize.height * 0.15),
+                     withAttributes: hashAttrs)
+
+        image.unlockFocus()
+        image.isTemplate = false
+        return image
     }
 }
