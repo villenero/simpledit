@@ -2,6 +2,9 @@ import Cocoa
 
 class AppDelegate: NSObject, NSApplicationDelegate {
 
+    // Register custom document controller before NSApp initializes the default one
+    private let documentController = SimpleEditDocumentController()
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Activate app and bring to front (needed when running as raw binary, not .app bundle)
         NSApp.setActivationPolicy(.regular)
