@@ -3,6 +3,9 @@ import Cocoa
 class StatusBarView: NSView {
 
     private let label = NSTextField(labelWithString: "")
+    private let stylePopUp = NSPopUpButton(frame: .zero, pullsDown: false)
+
+    var onStyleChanged: ((EditorStyle) -> Void)?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -23,6 +26,19 @@ class StatusBarView: NSView {
         separator.translatesAutoresizingMaskIntoConstraints = false
         addSubview(separator)
 
+        // Style dropdown
+        stylePopUp.removeAllItems()
+        for style in EditorStyle.all {
+            stylePopUp.addItem(withTitle: style.name)
+        }
+        stylePopUp.font = NSFont.systemFont(ofSize: 11)
+        stylePopUp.controlSize = .small
+        (stylePopUp.cell as? NSPopUpButtonCell)?.bezelStyle = .inline
+        stylePopUp.target = self
+        stylePopUp.action = #selector(styleChanged(_:))
+        stylePopUp.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stylePopUp)
+
         label.font = NSFont.systemFont(ofSize: 11)
         label.textColor = .secondaryLabelColor
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -33,10 +49,25 @@ class StatusBarView: NSView {
             separator.leadingAnchor.constraint(equalTo: leadingAnchor),
             separator.trailingAnchor.constraint(equalTo: trailingAnchor),
 
+            stylePopUp.centerYAnchor.constraint(equalTo: centerYAnchor),
+            stylePopUp.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
             label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            label.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 10),
+            label.leadingAnchor.constraint(greaterThanOrEqualTo: stylePopUp.trailingAnchor, constant: 10),
         ])
+    }
+
+    @objc private func styleChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        let styles = EditorStyle.all
+        guard index >= 0, index < styles.count else { return }
+        onStyleChanged?(styles[index])
+    }
+
+    func selectStyle(at index: Int) {
+        guard index >= 0, index < EditorStyle.all.count else { return }
+        stylePopUp.selectItem(at: index)
     }
 
     func update(words: Int, characters: Int, lines: Int, encoding: String, mode: String) {

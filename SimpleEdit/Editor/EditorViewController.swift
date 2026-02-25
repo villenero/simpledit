@@ -13,6 +13,7 @@ class EditorViewController: NSViewController {
     private let markdownParser = MarkdownParser()
     private weak var document: Document?
     private var isMarkdownMode: Bool = false
+    private var currentStyle: EditorStyle = .light
 
     // MARK: - Lifecycle
 
@@ -87,6 +88,9 @@ class EditorViewController: NSViewController {
     private func setupStatusBar() {
         statusBar = StatusBarView()
         statusBar.translatesAutoresizingMaskIntoConstraints = false
+        statusBar.onStyleChanged = { [weak self] style in
+            self?.applyStyle(style)
+        }
         view.addSubview(statusBar)
     }
 
@@ -144,6 +148,29 @@ class EditorViewController: NSViewController {
         webView.isHidden = true
 
         textView.string = text
+        textView.font = currentStyle.font
+        textView.textColor = currentStyle.textColor
+        textView.backgroundColor = currentStyle.backgroundColor
+    }
+
+    // MARK: - Style
+
+    func applyStyle(_ style: EditorStyle) {
+        currentStyle = style
+
+        textView.font = style.font
+        textView.textColor = style.textColor
+        textView.backgroundColor = style.backgroundColor
+
+        if let index = EditorStyle.all.firstIndex(where: { $0.name == style.name }) {
+            statusBar.selectStyle(at: index)
+        }
+
+        if isMarkdownMode, let text = document?.text {
+            let html = markdownParser.toHTML(text)
+            let fullHTML = wrapInTemplate(html)
+            webView.loadHTMLString(fullHTML, baseURL: nil)
+        }
     }
 
     // MARK: - HTML Template
@@ -156,7 +183,7 @@ class EditorViewController: NSViewController {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-        \(MarkdownPreviewController.previewCSS)
+        \(currentStyle.markdownCSS)
         </style>
         </head>
         <body>

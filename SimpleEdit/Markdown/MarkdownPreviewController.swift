@@ -99,6 +99,7 @@ class MarkdownPreviewController: NSViewController {
         padding: 12px 16px;
         border-radius: 8px;
         overflow-x: auto;
+        line-height: 1.15;
     }
     pre code {
         background: none;

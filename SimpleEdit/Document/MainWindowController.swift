@@ -8,8 +8,9 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     private(set) var selectedIndex: Int = -1
 
     private let tabBar = TabBarView()
-    private let editorViewController = EditorViewController()
+    let editorViewController = EditorViewController()
     private let containerView = DragContainerView()
+    private var welcomeView: NSView!
 
     private init() {
         let window = NSWindow(
@@ -26,7 +27,9 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         super.init(window: window)
 
         setupUI()
+        setupWelcomeView()
         setupDragAndDrop()
+        showWelcomeState()
 
         window.setContentSize(NSSize(width: 800, height: 600))
         window.center()
@@ -61,6 +64,67 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         containerView.addSubview(editorView)
     }
 
+    private func setupWelcomeView() {
+        welcomeView = NSView()
+        welcomeView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(welcomeView)
+
+        let iconView = NSImageView()
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.imageScaling = .scaleProportionallyUpOrDown
+        if let iconURL = Bundle.module.url(forResource: "icon", withExtension: "png"),
+           let icon = NSImage(contentsOf: iconURL) {
+            iconView.image = icon
+        }
+        welcomeView.addSubview(iconView)
+
+        let label = NSTextField(labelWithString: "Drop a file. Start reading.")
+        label.font = NSFont.systemFont(ofSize: 15, weight: .medium)
+        label.textColor = .tertiaryLabelColor
+        label.alignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        welcomeView.addSubview(label)
+
+        let subtitleLabel = NSTextField(labelWithString: ".md  .txt  .markdown")
+        subtitleLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        subtitleLabel.textColor = .quaternaryLabelColor
+        subtitleLabel.alignment = .center
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        welcomeView.addSubview(subtitleLabel)
+
+        NSLayoutConstraint.activate([
+            welcomeView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            welcomeView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            welcomeView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            welcomeView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+
+            iconView.centerXAnchor.constraint(equalTo: welcomeView.centerXAnchor),
+            iconView.centerYAnchor.constraint(equalTo: welcomeView.centerYAnchor, constant: -40),
+            iconView.widthAnchor.constraint(equalToConstant: 128),
+            iconView.heightAnchor.constraint(equalToConstant: 128),
+
+            label.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 16),
+            label.centerXAnchor.constraint(equalTo: welcomeView.centerXAnchor),
+
+            subtitleLabel.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 6),
+            subtitleLabel.centerXAnchor.constraint(equalTo: welcomeView.centerXAnchor),
+        ])
+    }
+
+    private func showWelcomeState() {
+        welcomeView.isHidden = false
+        tabBar.isHidden = true
+        editorViewController.view.isHidden = true
+        window?.title = "SimpleEdit"
+        window?.representedURL = nil
+    }
+
+    private func showEditorState() {
+        welcomeView.isHidden = true
+        tabBar.isHidden = false
+        editorViewController.view.isHidden = false
+    }
+
     // MARK: - Drag & Drop
 
     private func setupDragAndDrop() {
@@ -77,6 +141,7 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         }
 
         documents.append(doc)
+        showEditorState()
         selectTab(at: documents.count - 1)
     }
 
@@ -90,7 +155,9 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         closedDoc.close()
 
         if documents.isEmpty {
-            _ = try? NSDocumentController.shared.openUntitledDocumentAndDisplay(true)
+            selectedIndex = -1
+            updateTabBar()
+            showWelcomeState()
             return
         }
 
