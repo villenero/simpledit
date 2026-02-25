@@ -1,35 +1,18 @@
 import Cocoa
 import WebKit
 
-// MARK: - View Mode
-
-enum ViewMode: Int {
-    case source = 0
-    case styledSource = 1
-    case preview = 2
-}
-
-class EditorViewController: NSViewController, NSTextStorageDelegate {
+class EditorViewController: NSViewController {
 
     // MARK: - Properties
 
-    private(set) var textView: SimpleTextView!
+    private var textView: NSTextView!
     private var scrollView: NSScrollView!
+    private var webView: WKWebView!
     private var statusBar: StatusBarView!
-    private var markdownToolbar: MarkdownToolbar!
-    private var previewController: MarkdownPreviewController?
-    private var splitView: NSSplitView?
 
-    private var markdownTextStorage: MarkdownTextStorage?
     private let markdownParser = MarkdownParser()
-    private let markdownStyler = MarkdownStyler()
-
     private weak var document: Document?
-    private var viewMode: ViewMode = .source
-    private var wordWrapEnabled: Bool = true
-    private var isMarkdownToolbarVisible: Bool = false
-    private var isPreviewVisible: Bool = false
-    private(set) var isEditing: Bool = false
+    private var isMarkdownMode: Bool = false
 
     // MARK: - Lifecycle
 
@@ -37,15 +20,11 @@ class EditorViewController: NSViewController, NSTextStorageDelegate {
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
         self.view = container
 
-        setupMarkdownToolbar()
         setupScrollView()
         setupTextView()
+        setupWebView()
         setupStatusBar()
         layoutSubviews()
-    }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
     }
 
     // MARK: - Setup
@@ -75,30 +54,34 @@ class EditorViewController: NSViewController, NSTextStorageDelegate {
         textContainer.widthTracksTextView = true
         layoutManager.addTextContainer(textContainer)
 
-        textView = SimpleTextView(frame: NSRect(origin: .zero, size: contentSize), textContainer: textContainer)
+        textView = NSTextView(frame: NSRect(origin: .zero, size: contentSize), textContainer: textContainer)
         textView.isEditable = false
         textView.isSelectable = true
-        textView.allowsUndo = true
         textView.isRichText = false
         textView.usesFindBar = true
         textView.isIncrementalSearchingEnabled = true
-        textView.isAutomaticSpellingCorrectionEnabled = true
-        textView.isAutomaticTextReplacementEnabled = true
-        textView.isAutomaticQuoteSubstitutionEnabled = false
-        textView.isAutomaticDashSubstitutionEnabled = false
         textView.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
         textView.textColor = .textColor
         textView.backgroundColor = .textBackgroundColor
-        textView.insertionPointColor = .textColor
+        textView.textContainerInset = NSSize(width: 40, height: 20)
         textView.autoresizingMask = [.width]
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
         textView.minSize = NSSize(width: 0, height: contentSize.height)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
 
-        textView.textStorage?.delegate = self
-
         scrollView.documentView = textView
+    }
+
+    private func setupWebView() {
+        let config = WKWebViewConfiguration()
+        config.preferences.isElementFullscreenEnabled = false
+
+        webView = WKWebView(frame: .zero, configuration: config)
+        webView.allowsMagnification = true
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.isHidden = true
+        view.addSubview(webView)
     }
 
     private func setupStatusBar() {
@@ -107,32 +90,25 @@ class EditorViewController: NSViewController, NSTextStorageDelegate {
         view.addSubview(statusBar)
     }
 
-    private func setupMarkdownToolbar() {
-        markdownToolbar = MarkdownToolbar()
-        markdownToolbar.translatesAutoresizingMaskIntoConstraints = false
-        markdownToolbar.isHidden = true
-        view.addSubview(markdownToolbar)
-    }
-
     private func layoutSubviews() {
         NSLayoutConstraint.activate([
-            // Markdown toolbar at top
-            markdownToolbar.topAnchor.constraint(equalTo: view.topAnchor),
-            markdownToolbar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            markdownToolbar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            markdownToolbar.heightAnchor.constraint(equalToConstant: 32),
-
             // Status bar at bottom
             statusBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             statusBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             statusBar.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            statusBar.heightAnchor.constraint(equalToConstant: 22),
+            statusBar.heightAnchor.constraint(equalToConstant: 30),
 
-            // Scroll view fills the rest
-            scrollView.topAnchor.constraint(equalTo: markdownToolbar.bottomAnchor),
+            // Scroll view (plain text)
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+
+            // Web view (markdown)
+            webView.topAnchor.constraint(equalTo: view.topAnchor),
+            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            webView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
         ])
     }
 
@@ -143,136 +119,63 @@ class EditorViewController: NSViewController, NSTextStorageDelegate {
 
         guard isViewLoaded else { return }
 
-        textView.string = doc.text
+        isMarkdownMode = doc.isMarkdown
 
-        if doc.isMarkdown {
-            viewMode = .styledSource
-            switchToMarkdownStorage()
+        if isMarkdownMode {
+            showMarkdownView(doc.text)
         } else {
-            viewMode = .source
-            switchToPlainStorage()
+            showPlainTextView(doc.text)
         }
 
-        // Default: view-only mode
-        enterViewMode()
         updateStatusBar()
     }
 
-    // MARK: - View / Edit Mode Toggle
+    private func showMarkdownView(_ text: String) {
+        scrollView.isHidden = true
+        webView.isHidden = false
 
-    func enterViewMode() {
-        isEditing = false
-        textView.isEditable = false
-        showMarkdownToolbar(false)
-
-        // In view mode for markdown: hide syntax markers for clean reading
-        if document?.isMarkdown == true {
-            markdownStyler.hideMarkers = true
-            viewMode = .styledSource
-            switchToMarkdownStorage()
-        }
-
-        // Notify the window controller to update toolbar button
-        if let wc = view.window?.windowController as? DocumentWindowController {
-            wc.updateEditButton()
-        }
+        let html = markdownParser.toHTML(text)
+        let fullHTML = wrapInTemplate(html)
+        webView.loadHTMLString(fullHTML, baseURL: nil)
     }
 
-    func enterEditMode() {
-        isEditing = true
-        textView.isEditable = true
+    private func showPlainTextView(_ text: String) {
+        scrollView.isHidden = false
+        webView.isHidden = true
 
-        // In edit mode: show syntax markers
-        if document?.isMarkdown == true {
-            markdownStyler.hideMarkers = false
-            showMarkdownToolbar(true)
-            applyMarkdownStyling()
-        }
-
-        // Notify the window controller to update toolbar button
-        if let wc = view.window?.windowController as? DocumentWindowController {
-            wc.updateEditButton()
-        }
-
-        // Focus the text view
-        view.window?.makeFirstResponder(textView)
+        textView.string = text
     }
 
-    @objc func toggleEditMode(_ sender: Any?) {
-        if isEditing {
-            enterViewMode()
-        } else {
-            enterEditMode()
-        }
-    }
+    // MARK: - HTML Template
 
-    // MARK: - Markdown Storage Switching
-
-    private func switchToMarkdownStorage() {
-        guard markdownTextStorage == nil else {
-            applyMarkdownStyling()
-            return
-        }
-
-        let mdStorage = MarkdownTextStorage(parser: markdownParser, styler: markdownStyler)
-        let text = textView.string
-
-        let layoutManager = textView.layoutManager!
-        textView.textStorage?.removeLayoutManager(layoutManager)
-        mdStorage.addLayoutManager(layoutManager)
-        mdStorage.replaceCharacters(in: NSRange(location: 0, length: 0), with: text)
-        mdStorage.delegate = self
-
-        markdownTextStorage = mdStorage
-        applyMarkdownStyling()
-    }
-
-    private func switchToPlainStorage() {
-        guard let mdStorage = markdownTextStorage else { return }
-
-        let text = mdStorage.string
-        let layoutManager = textView.layoutManager!
-
-        mdStorage.removeLayoutManager(layoutManager)
-        let plainStorage = NSTextStorage(string: text)
-        plainStorage.addLayoutManager(layoutManager)
-        plainStorage.delegate = self
-
-        markdownTextStorage = nil
-
-        textView.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-        textView.textColor = .textColor
-    }
-
-    private func applyMarkdownStyling() {
-        guard let storage = markdownTextStorage, viewMode == .styledSource else { return }
-        storage.applyStyling()
-    }
-
-    // MARK: - NSTextStorageDelegate
-
-    func textStorage(_ textStorage: NSTextStorage, didProcessEditing editedMask: NSTextStorageEditActions, range editedRange: NSRange, changeInLength delta: Int) {
-        // Only respond to character edits, not attribute-only changes
-        guard editedMask.contains(.editedCharacters) else { return }
-
-        // Sync text back to document
-        document?.text = textStorage.string
-
-        // Update status bar
-        DispatchQueue.main.async { [weak self] in
-            self?.updateStatusBar()
-        }
-
-        // Update preview if visible
-        if isPreviewVisible {
-            updatePreviewThrottled()
-        }
+    private func wrapInTemplate(_ body: String) -> String {
+        """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+        \(MarkdownPreviewController.previewCSS)
+        </style>
+        </head>
+        <body>
+        \(body)
+        </body>
+        </html>
+        """
     }
 
     // MARK: - Status Bar
 
     private func updateStatusBar() {
-        let text = textView.string
+        let text: String
+        if isMarkdownMode {
+            text = document?.text ?? ""
+        } else {
+            text = textView.string
+        }
+
         let wordCount = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
         let charCount = text.count
         let lineCount = text.components(separatedBy: .newlines).count
@@ -287,12 +190,7 @@ class EditorViewController: NSViewController, NSTextStorageDelegate {
         default: encodingName = "UTF-8"
         }
 
-        let modeLabel: String
-        if document?.isMarkdown == true {
-            modeLabel = isEditing ? "Markdown (Editing)" : "Markdown"
-        } else {
-            modeLabel = isEditing ? "Plain Text (Editing)" : "Plain Text"
-        }
+        let modeLabel = isMarkdownMode ? "Markdown" : "Plain Text"
 
         statusBar.update(
             words: wordCount,
@@ -303,95 +201,11 @@ class EditorViewController: NSViewController, NSTextStorageDelegate {
         )
     }
 
-    // MARK: - Preview
-
-    private var previewUpdateWorkItem: DispatchWorkItem?
-
-    private func updatePreviewThrottled() {
-        previewUpdateWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.updatePreview()
-        }
-        previewUpdateWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
-    }
-
-    private func updatePreview() {
-        guard isPreviewVisible, let preview = previewController else { return }
-        let html = markdownParser.toHTML(textView.string)
-        preview.loadHTML(html)
-    }
-
-    private func showPreview() {
-        if previewController == nil {
-            previewController = MarkdownPreviewController()
-        }
-
-        guard let preview = previewController else { return }
-
-        let split = NSSplitView()
-        split.isVertical = true
-        split.translatesAutoresizingMaskIntoConstraints = false
-        split.dividerStyle = .thin
-
-        // Remove scrollView from current parent
-        scrollView.removeFromSuperview()
-
-        split.addSubview(scrollView)
-        split.addSubview(preview.view)
-        view.addSubview(split)
-
-        // Replace scrollView constraints with split constraints
-        NSLayoutConstraint.activate([
-            split.topAnchor.constraint(equalTo: markdownToolbar.bottomAnchor),
-            split.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            split.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            split.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
-        ])
-
-        self.splitView = split
-        isPreviewVisible = true
-        updatePreview()
-    }
-
-    private func hidePreview() {
-        guard let split = splitView else { return }
-
-        scrollView.removeFromSuperview()
-        split.removeFromSuperview()
-        view.addSubview(scrollView)
-
-        NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: markdownToolbar.bottomAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
-        ])
-
-        self.splitView = nil
-        isPreviewVisible = false
-    }
-
-    // MARK: - Toolbar
-
-    private func showMarkdownToolbar(_ show: Bool) {
-        isMarkdownToolbarVisible = show
-        markdownToolbar.isHidden = !show
-    }
-
     // MARK: - Menu Actions
 
     @objc func toggleWordWrap(_ sender: Any?) {
-        wordWrapEnabled.toggle()
-        if wordWrapEnabled {
-            textView.textContainer?.widthTracksTextView = true
-            textView.textContainer?.containerSize = NSSize(
-                width: scrollView.contentSize.width,
-                height: CGFloat.greatestFiniteMagnitude
-            )
-            textView.isHorizontallyResizable = false
-            scrollView.hasHorizontalScroller = false
-        } else {
+        guard !isMarkdownMode else { return }
+        if textView.textContainer?.widthTracksTextView == true {
             textView.textContainer?.widthTracksTextView = false
             textView.textContainer?.containerSize = NSSize(
                 width: CGFloat.greatestFiniteMagnitude,
@@ -399,36 +213,14 @@ class EditorViewController: NSViewController, NSTextStorageDelegate {
             )
             textView.isHorizontallyResizable = true
             scrollView.hasHorizontalScroller = true
-        }
-    }
-
-    @objc func setTabSize(_ sender: NSMenuItem) {
-        textView.tabSize = sender.tag
-    }
-
-    @objc func setSourceMode(_ sender: Any?) {
-        viewMode = .source
-        if markdownTextStorage != nil {
-            switchToPlainStorage()
-        }
-        if isPreviewVisible { hidePreview() }
-    }
-
-    @objc func setStyledMode(_ sender: Any?) {
-        viewMode = .styledSource
-        switchToMarkdownStorage()
-        if isPreviewVisible { hidePreview() }
-    }
-
-    @objc func togglePreview(_ sender: Any?) {
-        if isPreviewVisible {
-            hidePreview()
         } else {
-            showPreview()
+            textView.textContainer?.widthTracksTextView = true
+            textView.textContainer?.containerSize = NSSize(
+                width: scrollView.contentSize.width,
+                height: CGFloat.greatestFiniteMagnitude
+            )
+            textView.isHorizontallyResizable = false
+            scrollView.hasHorizontalScroller = false
         }
-    }
-
-    @objc func toggleMarkdownToolbar(_ sender: Any?) {
-        showMarkdownToolbar(!isMarkdownToolbarVisible)
     }
 }

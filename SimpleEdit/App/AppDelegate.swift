@@ -71,14 +71,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // File menu
         let fileMenuItem = NSMenuItem()
         let fileMenu = NSMenu(title: "File")
-        fileMenu.addItem(withTitle: "New", action: #selector(NSDocumentController.newDocument(_:)), keyEquivalent: "n")
         fileMenu.addItem(withTitle: "Open…", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
-        fileMenu.addItem(.separator())
-        fileMenu.addItem(withTitle: "Save", action: #selector(NSDocument.save(_:)), keyEquivalent: "s")
-        let saveAsItem = fileMenu.addItem(withTitle: "Save As…", action: #selector(NSDocument.saveAs(_:)), keyEquivalent: "S")
-        saveAsItem.keyEquivalentModifierMask = [.command, .shift]
-        fileMenu.addItem(.separator())
-        fileMenu.addItem(withTitle: "Revert to Saved", action: #selector(NSDocument.revertToSaved(_:)), keyEquivalent: "")
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Print…", action: #selector(NSDocument.printDocument(_:)), keyEquivalent: "p")
         fileMenu.addItem(.separator())
@@ -86,60 +79,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenuItem.submenu = fileMenu
         mainMenu.addItem(fileMenuItem)
 
-        // Edit menu
+        // Edit menu (copy, select all, find)
         let editMenuItem = NSMenuItem()
         let editMenu = NSMenu(title: "Edit")
-        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-        let redoItem = editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
-        redoItem.keyEquivalentModifierMask = [.command, .shift]
-        editMenu.addItem(.separator())
-        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editMenu.addItem(.separator())
         editMenu.addItem(withTitle: "Find…", action: #selector(NSTextView.performFindPanelAction(_:)), keyEquivalent: "f")
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
 
-        // Format menu
-        let formatMenuItem = NSMenuItem()
-        let formatMenu = NSMenu(title: "Format")
-        formatMenu.addItem(withTitle: "Show Fonts", action: #selector(NSFontManager.orderFrontFontPanel(_:)), keyEquivalent: "t")
-        formatMenu.addItem(.separator())
-        formatMenu.addItem(withTitle: "Toggle Word Wrap", action: #selector(EditorViewController.toggleWordWrap(_:)), keyEquivalent: "")
-        formatMenuItem.submenu = formatMenu
-        mainMenu.addItem(formatMenuItem)
-
-        // Markdown menu
-        let mdMenuItem = NSMenuItem()
-        let mdMenu = NSMenu(title: "Markdown")
-        mdMenu.addItem(withTitle: "Source Mode", action: #selector(EditorViewController.setSourceMode(_:)), keyEquivalent: "1")
-        mdMenu.addItem(withTitle: "Styled Source Mode", action: #selector(EditorViewController.setStyledMode(_:)), keyEquivalent: "2")
-        let previewItem = mdMenu.addItem(withTitle: "Toggle Preview", action: #selector(EditorViewController.togglePreview(_:)), keyEquivalent: "p")
-        previewItem.keyEquivalentModifierMask = [.command, .shift]
-        mdMenu.addItem(.separator())
-        mdMenu.addItem(withTitle: "Bold", action: #selector(MarkdownToolbar.boldAction(_:)), keyEquivalent: "b")
-        mdMenu.addItem(withTitle: "Italic", action: #selector(MarkdownToolbar.italicAction(_:)), keyEquivalent: "i")
-        mdMenu.addItem(withTitle: "Code", action: #selector(MarkdownToolbar.codeAction(_:)), keyEquivalent: "e")
-        mdMenu.addItem(withTitle: "Link", action: #selector(MarkdownToolbar.linkAction(_:)), keyEquivalent: "k")
-        let toolbarToggle = mdMenu.addItem(withTitle: "Toggle Format Toolbar", action: #selector(EditorViewController.toggleMarkdownToolbar(_:)), keyEquivalent: "t")
-        toolbarToggle.keyEquivalentModifierMask = [.command, .shift]
-        mdMenuItem.submenu = mdMenu
-        mainMenu.addItem(mdMenuItem)
-
         // View menu
         let viewMenuItem = NSMenuItem()
         let viewMenu = NSMenu(title: "View")
-        let tabSizeItem = NSMenuItem(title: "Tab Size", action: nil, keyEquivalent: "")
-        let tabSubMenu = NSMenu()
-        for size in [2, 4, 8] {
-            let item = NSMenuItem(title: "\(size) Spaces", action: #selector(EditorViewController.setTabSize(_:)), keyEquivalent: "")
-            item.tag = size
-            tabSubMenu.addItem(item)
-        }
-        tabSizeItem.submenu = tabSubMenu
-        viewMenu.addItem(tabSizeItem)
+        viewMenu.addItem(withTitle: "Toggle Word Wrap", action: #selector(EditorViewController.toggleWordWrap(_:)), keyEquivalent: "")
         viewMenuItem.submenu = viewMenu
         mainMenu.addItem(viewMenuItem)
 

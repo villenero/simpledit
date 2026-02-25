@@ -16,7 +16,7 @@ class StatusBarView: NSView {
 
     private func setup() {
         wantsLayer = true
-        layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        layer?.backgroundColor = NSColor(white: 0.93, alpha: 1.0).cgColor
 
         let separator = NSBox()
         separator.boxType = .separator
@@ -34,8 +34,8 @@ class StatusBarView: NSView {
             separator.trailingAnchor.constraint(equalTo: trailingAnchor),
 
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-            label.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -10),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            label.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 10),
         ])
     }
 
@@ -44,6 +44,10 @@ class StatusBarView: NSView {
     }
 
     override func updateLayer() {
-        layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        if NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
+            layer?.backgroundColor = NSColor(white: 0.18, alpha: 1.0).cgColor
+        } else {
+            layer?.backgroundColor = NSColor(white: 0.93, alpha: 1.0).cgColor
+        }
     }
 }

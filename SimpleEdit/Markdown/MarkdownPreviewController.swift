@@ -143,12 +143,31 @@ class MarkdownPreviewController: NSViewController {
         border-collapse: collapse;
         width: 100%;
         margin: 12px 0;
+        font-size: 13px;
     }
     th, td {
         border: 1px solid #d2d2d7;
         padding: 8px 12px;
         text-align: left;
     }
-    th { font-weight: 600; }
+    th {
+        font-weight: 600;
+        background-color: rgba(0, 0, 0, 0.04);
+    }
+    tr:nth-child(even) td {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    @media (prefers-color-scheme: dark) {
+        th {
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+        tr:nth-child(even) td {
+            background-color: rgba(255, 255, 255, 0.04);
+        }
+        th, td {
+            border-color: #38383a;
+        }
+    }
     """
 }
