@@ -48,16 +48,7 @@ app:
 	@echo "==> App bundle ready: $(APP)"
 
 dmg: app
-	@echo "==> Creating DMG..."
-	@rm -f $(DIST)/MDView-temp.dmg $(DIST)/MDView-$(VERSION).dmg
-	@hdiutil create -size 100m -fs HFS+ -volname "MDView" $(DIST)/MDView-temp.dmg
-	@MOUNT_DIR=$$(hdiutil attach -readwrite -noverify $(DIST)/MDView-temp.dmg | grep '/Volumes/' | awk '{print $$NF}') && \
-		cp -R $(APP) "$$MOUNT_DIR/" && \
-		ln -s /Applications "$$MOUNT_DIR/Applications" && \
-		hdiutil detach "$$MOUNT_DIR"
-	@hdiutil convert $(DIST)/MDView-temp.dmg -format UDZO -o $(DIST)/MDView-$(VERSION).dmg
-	@rm -f $(DIST)/MDView-temp.dmg
-	@echo "==> Done: $(DIST)/MDView-$(VERSION).dmg"
+	@scripts/create-dmg.sh
 
 clean:
 	rm -rf $(DIST)

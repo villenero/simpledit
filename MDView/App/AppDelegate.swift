@@ -1,4 +1,5 @@
 import Cocoa
+import CoreServices
 
 class AppDelegate: NSObject, NSApplicationDelegate {
 
@@ -17,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         setupMainMenu()
+        registerAsDefaultMarkdownHandler()
 
         // Ensure main window is ready
         MainWindowController.shared.showWindow()
@@ -48,6 +50,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    // MARK: - Default Handler
+
+    private func registerAsDefaultMarkdownHandler() {
+        let key = "HasRegisteredAsDefaultHandler"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+
+        let bundleID = (Bundle.main.bundleIdentifier ?? "com.mdview.app") as CFString
+        let markdownUTI = "net.daringfireball.markdown" as CFString
+
+        LSSetDefaultRoleHandlerForContentType(markdownUTI, .all, bundleID)
+        UserDefaults.standard.set(true, forKey: key)
     }
 
     // MARK: - Main Menu
