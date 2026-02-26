@@ -33,6 +33,12 @@ class Document: NSDocument {
             || fileURL?.pathExtension == "markdown"
     }
 
+    func reloadFromDisk(url: URL) {
+        guard let data = try? Data(contentsOf: url) else { return }
+        let typeName = isMarkdown ? "net.daringfireball.markdown" : "public.plain-text"
+        try? read(from: data, ofType: typeName)
+    }
+
     // MARK: - Write
 
     override func data(ofType typeName: String) throws -> Data {

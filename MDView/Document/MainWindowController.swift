@@ -292,10 +292,13 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     private func updateWindowTitle() {
         guard selectedIndex >= 0, selectedIndex < documents.count else {
             toolbar.updateFilePath(nil)
+            editorViewController.statusBar.currentFilePath = nil
             return
         }
         let doc = documents[selectedIndex]
-        toolbar.updateFilePath(doc.fileURL?.path)
+        let path = doc.fileURL?.path
+        toolbar.updateFilePath(path)
+        editorViewController.statusBar.currentFilePath = path
     }
 
     // MARK: - Outline
@@ -392,6 +395,35 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
 
     func tabBarDidEndSearch(_ tabBar: TabBarView) {
         editorViewController.clearSearch()
+    }
+
+    func tabBarDidReload(_ tabBar: TabBarView) {
+        guard selectedIndex >= 0, selectedIndex < documents.count else { return }
+        let doc = documents[selectedIndex]
+        guard let url = doc.fileURL else { return }
+        doc.reloadFromDisk(url: url)
+        editorViewController.loadDocument(doc)
+        if isOutlineVisible { updateOutline() }
+    }
+
+    // MARK: - Tab Cycling
+
+    @objc func selectNextTab(_ sender: Any?) {
+        guard documents.count > 1 else { return }
+        let next = (selectedIndex + 1) % documents.count
+        selectTab(at: next)
+    }
+
+    @objc func selectPreviousTab(_ sender: Any?) {
+        guard documents.count > 1 else { return }
+        let prev = (selectedIndex - 1 + documents.count) % documents.count
+        selectTab(at: prev)
+    }
+
+    // MARK: - File Info
+
+    func updateFileInfo(words: Int, characters: Int, lines: Int, encoding: String, mode: String) {
+        toolbar.updateFileInfo(words: words, characters: characters, lines: lines, encoding: encoding, mode: mode)
     }
 
     // MARK: - Find

@@ -7,6 +7,7 @@ protocol TabBarViewDelegate: AnyObject {
     func tabBar(_ tabBar: TabBarView, didSearch query: String)
     func tabBarDidSearchNext(_ tabBar: TabBarView)
     func tabBarDidEndSearch(_ tabBar: TabBarView)
+    func tabBarDidReload(_ tabBar: TabBarView)
 }
 
 struct TabItem {
@@ -226,9 +227,18 @@ class ToolbarView: NSView {
     weak var parentTabBar: TabBarView?
 
     private let outlineButton = NSButton()
+    private let reloadButton = NSButton()
     private let pathLabel = NSTextField(labelWithString: "")
     private let searchField = NSSearchField()
     private let searchCountLabel = NSTextField(labelWithString: "")
+    private let infoButton = NSButton()
+
+    // Info data
+    private var infoWords = 0
+    private var infoChars = 0
+    private var infoLines = 0
+    private var infoEncoding = ""
+    private var infoMode = ""
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -254,6 +264,17 @@ class ToolbarView: NSView {
         outlineButton.toolTip = "Show outline"
         outlineButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(outlineButton)
+
+        reloadButton.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Reload")
+        reloadButton.imageScaling = .scaleProportionallyDown
+        reloadButton.isBordered = false
+        reloadButton.bezelStyle = .accessoryBarAction
+        reloadButton.target = self
+        reloadButton.action = #selector(reloadButtonClicked)
+        reloadButton.contentTintColor = .secondaryLabelColor
+        reloadButton.toolTip = "Reload"
+        reloadButton.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(reloadButton)
 
         pathLabel.font = NSFont.systemFont(ofSize: 11)
         pathLabel.textColor = .tertiaryLabelColor
@@ -283,13 +304,27 @@ class ToolbarView: NSView {
         searchCountLabel.isHidden = true
         addSubview(searchCountLabel)
 
+        infoButton.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: "File info")
+        infoButton.imageScaling = .scaleProportionallyDown
+        infoButton.isBordered = false
+        infoButton.contentTintColor = .secondaryLabelColor
+        infoButton.target = self
+        infoButton.action = #selector(showInfoPopover(_:))
+        infoButton.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(infoButton)
+
         NSLayoutConstraint.activate([
             outlineButton.leadingAnchor.constraint(equalTo: leadingAnchor),
             outlineButton.topAnchor.constraint(equalTo: topAnchor),
             outlineButton.bottomAnchor.constraint(equalTo: separator.topAnchor),
             outlineButton.widthAnchor.constraint(equalToConstant: 38),
 
-            pathLabel.leadingAnchor.constraint(equalTo: outlineButton.trailingAnchor, constant: 4),
+            reloadButton.leadingAnchor.constraint(equalTo: outlineButton.trailingAnchor, constant: -4),
+            reloadButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            reloadButton.widthAnchor.constraint(equalToConstant: 26),
+            reloadButton.heightAnchor.constraint(equalToConstant: 26),
+
+            pathLabel.leadingAnchor.constraint(equalTo: reloadButton.trailingAnchor, constant: 4),
             pathLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             pathLabel.trailingAnchor.constraint(lessThanOrEqualTo: searchField.leadingAnchor, constant: -10),
 
@@ -297,12 +332,17 @@ class ToolbarView: NSView {
             separator.leadingAnchor.constraint(equalTo: leadingAnchor),
             separator.trailingAnchor.constraint(equalTo: trailingAnchor),
 
-            searchField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            searchField.trailingAnchor.constraint(equalTo: infoButton.leadingAnchor, constant: -6),
             searchField.centerYAnchor.constraint(equalTo: centerYAnchor),
             searchField.widthAnchor.constraint(equalToConstant: 160),
 
             searchCountLabel.trailingAnchor.constraint(equalTo: searchField.trailingAnchor, constant: -20),
             searchCountLabel.centerYAnchor.constraint(equalTo: searchField.centerYAnchor),
+
+            infoButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            infoButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            infoButton.widthAnchor.constraint(equalToConstant: 18),
+            infoButton.heightAnchor.constraint(equalToConstant: 18),
         ])
     }
 
@@ -311,8 +351,52 @@ class ToolbarView: NSView {
         tabBarDelegate?.tabBarDidToggleOutline(tabBar)
     }
 
+    @objc private func reloadButtonClicked() {
+        guard let tabBar = parentTabBar else { return }
+        tabBarDelegate?.tabBarDidReload(tabBar)
+    }
+
     func updateFilePath(_ path: String?) {
         pathLabel.stringValue = path ?? ""
+    }
+
+    func updateFileInfo(words: Int, characters: Int, lines: Int, encoding: String, mode: String) {
+        infoWords = words
+        infoChars = characters
+        infoLines = lines
+        infoEncoding = encoding
+        infoMode = mode
+    }
+
+    @objc private func showInfoPopover(_ sender: NSButton) {
+        let popover = NSPopover()
+        popover.behavior = .transient
+
+        let vc = NSViewController()
+        let view = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 100))
+
+        let text = """
+        \(infoMode)
+        \(infoLines) lines  ·  \(infoWords) words  ·  \(infoChars) chars
+        Encoding: \(infoEncoding)
+        """
+
+        let label = NSTextField(wrappingLabelWithString: text)
+        label.font = NSFont.systemFont(ofSize: 12)
+        label.textColor = .labelColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.topAnchor.constraint(equalTo: view.topAnchor, constant: 12),
+            label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            label.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            label.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -12),
+        ])
+
+        vc.view = view
+        popover.contentViewController = vc
+        popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
     }
 
     func focusSearchField() {
@@ -415,8 +499,8 @@ private class TabButtonView: NSView {
                 : NSColor(white: 0.93, alpha: 1.0).cgColor
         } else {
             layer?.backgroundColor = isDark
-                ? NSColor(white: 0.12, alpha: 1.0).cgColor
-                : NSColor(white: 0.84, alpha: 1.0).cgColor
+                ? NSColor(white: 0.15, alpha: 1.0).cgColor
+                : NSColor(white: 0.90, alpha: 1.0).cgColor
         }
     }
 

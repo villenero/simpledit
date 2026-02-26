@@ -19,6 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         setupMainMenu()
         registerAsDefaultMarkdownHandler()
+        setupTabCyclingMonitor()
 
         // Ensure main window is ready
         MainWindowController.shared.showWindow()
@@ -177,6 +178,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ])
     }
 
-    // MARK: - App Icon
+    // MARK: - Tab Cycling
 
+    private func setupTabCyclingMonitor() {
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Ctrl+Tab or Ctrl+Shift+Tab
+            if event.keyCode == 48, event.modifierFlags.contains(.control) {  // 48 = Tab key
+                if event.modifierFlags.contains(.shift) {
+                    MainWindowController.shared.selectPreviousTab(nil)
+                } else {
+                    MainWindowController.shared.selectNextTab(nil)
+                }
+                return nil  // consume the event
+            }
+            return event
+        }
+    }
 }
