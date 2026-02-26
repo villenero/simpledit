@@ -436,8 +436,23 @@ class MarkdownParser {
 
     // MARK: - HTML Generation (for preview)
 
-    func toHTML(_ markdown: String) -> String {
+    func toHTML(_ markdown: String, mermaidEnabled: Bool = false) -> String {
         var html = markdown
+
+        // Extract mermaid blocks before any processing to protect their content
+        var mermaidBlocks: [String] = []
+        if mermaidEnabled, let regex = try? NSRegularExpression(pattern: #"```mermaid\n([\s\S]*?)```"#) {
+            let nsHTML = html as NSString
+            let matches = regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length))
+            for match in matches.reversed() {
+                let contentRange = match.range(at: 1)
+                let content = nsHTML.substring(with: contentRange)
+                mermaidBlocks.insert(content, at: 0)
+                let fullRange = match.range
+                let placeholder = "<!--MERMAID_\(mermaidBlocks.count - 1)-->"
+                html = (html as NSString).replacingCharacters(in: fullRange, with: placeholder)
+            }
+        }
 
         // Code blocks (must be first to avoid inner replacements)
         html = html.replacingOccurrences(
@@ -496,6 +511,16 @@ class MarkdownParser {
         // Paragraphs (double newline)
         html = html.replacingOccurrences(of: #"\n\n"#, with: "</p><p>", options: .regularExpression)
         html = "<p>" + html + "</p>"
+
+        // Restore mermaid blocks (protected from markdown transformations)
+        if mermaidEnabled {
+            for (i, content) in mermaidBlocks.enumerated() {
+                html = html.replacingOccurrences(
+                    of: "<!--MERMAID_\(i)-->",
+                    with: "<div class=\"mermaid\">\n\(content)</div>"
+                )
+            }
+        }
 
         return html
     }

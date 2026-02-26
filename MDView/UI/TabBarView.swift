@@ -22,9 +22,8 @@ class TabBarView: NSView {
     private var tabButtons: [NSView] = []
     private let stackView = NSStackView()
     private let scrollView = NSScrollView()
-    private let outlineButton = NSButton()
-    private let searchField = NSSearchField()
-    private let searchCountLabel = NSTextField(labelWithString: "")
+
+    override var mouseDownCanMoveWindow: Bool { false }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -40,50 +39,10 @@ class TabBarView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor(white: 0.90, alpha: 1.0).cgColor
 
-        outlineButton.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "Toggle outline")
-        outlineButton.imageScaling = .scaleProportionallyDown
-        outlineButton.isBordered = false
-        outlineButton.bezelStyle = .accessoryBarAction
-        outlineButton.target = self
-        outlineButton.action = #selector(outlineButtonClicked)
-        outlineButton.contentTintColor = .secondaryLabelColor
-        outlineButton.toolTip = "Show outline"
-        outlineButton.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(outlineButton)
-
         let separator = NSBox()
         separator.boxType = .separator
         separator.translatesAutoresizingMaskIntoConstraints = false
         addSubview(separator)
-
-        // Vertical separator after outline button
-        let buttonSep = NSBox()
-        buttonSep.boxType = .separator
-        buttonSep.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(buttonSep)
-
-        searchField.placeholderString = "Search"
-        searchField.font = NSFont.systemFont(ofSize: 12)
-        searchField.focusRingType = .none
-        searchField.controlSize = .small
-        searchField.translatesAutoresizingMaskIntoConstraints = false
-        searchField.delegate = self
-        searchField.sendsSearchStringImmediately = true
-        searchField.sendsWholeSearchString = false
-        addSubview(searchField)
-
-        searchCountLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
-        searchCountLabel.textColor = .tertiaryLabelColor
-        searchCountLabel.alignment = .right
-        searchCountLabel.translatesAutoresizingMaskIntoConstraints = false
-        searchCountLabel.isHidden = true
-        addSubview(searchCountLabel)
-
-        // Vertical separator before search
-        let searchSep = NSBox()
-        searchSep.boxType = .separator
-        searchSep.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(searchSep)
 
         scrollView.drawsBackground = false
         scrollView.hasHorizontalScroller = false
@@ -98,45 +57,19 @@ class TabBarView: NSView {
         scrollView.documentView = stackView
 
         NSLayoutConstraint.activate([
-            outlineButton.leadingAnchor.constraint(equalTo: leadingAnchor),
-            outlineButton.topAnchor.constraint(equalTo: topAnchor),
-            outlineButton.bottomAnchor.constraint(equalTo: separator.topAnchor),
-            outlineButton.widthAnchor.constraint(equalToConstant: 38),
-
-            buttonSep.leadingAnchor.constraint(equalTo: outlineButton.trailingAnchor),
-            buttonSep.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            buttonSep.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
-            buttonSep.widthAnchor.constraint(equalToConstant: 1),
-
             separator.bottomAnchor.constraint(equalTo: bottomAnchor),
             separator.leadingAnchor.constraint(equalTo: leadingAnchor),
             separator.trailingAnchor.constraint(equalTo: trailingAnchor),
 
-            searchField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            searchField.centerYAnchor.constraint(equalTo: centerYAnchor),
-            searchField.widthAnchor.constraint(equalToConstant: 160),
-
-            searchCountLabel.trailingAnchor.constraint(equalTo: searchField.trailingAnchor, constant: -20),
-            searchCountLabel.centerYAnchor.constraint(equalTo: searchField.centerYAnchor),
-
-            searchSep.trailingAnchor.constraint(equalTo: searchField.leadingAnchor, constant: -8),
-            searchSep.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            searchSep.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
-            searchSep.widthAnchor.constraint(equalToConstant: 1),
-
             scrollView.topAnchor.constraint(equalTo: topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: buttonSep.trailingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: searchSep.leadingAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: separator.topAnchor),
 
             stackView.topAnchor.constraint(equalTo: scrollView.topAnchor),
             stackView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
             stackView.heightAnchor.constraint(equalTo: scrollView.heightAnchor),
         ])
-    }
-
-    @objc private func outlineButtonClicked() {
-        delegate?.tabBarDidToggleOutline(self)
     }
 
     func update(tabs: [TabItem]) {
@@ -213,6 +146,97 @@ class TabBarView: NSView {
         delegate?.tabBar(self, didCloseTabAt: sender.index)
     }
 
+    override func updateLayer() {
+        if NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
+            layer?.backgroundColor = NSColor(white: 0.15, alpha: 1.0).cgColor
+        } else {
+            layer?.backgroundColor = NSColor(white: 0.90, alpha: 1.0).cgColor
+        }
+    }
+}
+
+// MARK: - ToolbarView (outline button + search)
+
+class ToolbarView: NSView {
+
+    weak var tabBarDelegate: TabBarViewDelegate?
+    weak var parentTabBar: TabBarView?
+
+    private let outlineButton = NSButton()
+    private let searchField = NSSearchField()
+    private let searchCountLabel = NSTextField(labelWithString: "")
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setup()
+    }
+
+    private func setup() {
+        wantsLayer = true
+        layer?.backgroundColor = NSColor(white: 0.93, alpha: 1.0).cgColor
+
+        outlineButton.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "Toggle outline")
+        outlineButton.imageScaling = .scaleProportionallyDown
+        outlineButton.isBordered = false
+        outlineButton.bezelStyle = .accessoryBarAction
+        outlineButton.target = self
+        outlineButton.action = #selector(outlineButtonClicked)
+        outlineButton.contentTintColor = .secondaryLabelColor
+        outlineButton.toolTip = "Show outline"
+        outlineButton.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(outlineButton)
+
+        let separator = NSBox()
+        separator.boxType = .separator
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(separator)
+
+        searchField.placeholderString = "Search"
+        searchField.font = NSFont.systemFont(ofSize: 12)
+        searchField.focusRingType = .none
+        searchField.controlSize = .small
+        searchField.translatesAutoresizingMaskIntoConstraints = false
+        searchField.delegate = self
+        searchField.sendsSearchStringImmediately = true
+        searchField.sendsWholeSearchString = false
+        addSubview(searchField)
+
+        searchCountLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+        searchCountLabel.textColor = .tertiaryLabelColor
+        searchCountLabel.alignment = .right
+        searchCountLabel.translatesAutoresizingMaskIntoConstraints = false
+        searchCountLabel.isHidden = true
+        addSubview(searchCountLabel)
+
+        NSLayoutConstraint.activate([
+            outlineButton.leadingAnchor.constraint(equalTo: leadingAnchor),
+            outlineButton.topAnchor.constraint(equalTo: topAnchor),
+            outlineButton.bottomAnchor.constraint(equalTo: separator.topAnchor),
+            outlineButton.widthAnchor.constraint(equalToConstant: 38),
+
+            separator.bottomAnchor.constraint(equalTo: bottomAnchor),
+            separator.leadingAnchor.constraint(equalTo: leadingAnchor),
+            separator.trailingAnchor.constraint(equalTo: trailingAnchor),
+
+            searchField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            searchField.centerYAnchor.constraint(equalTo: centerYAnchor),
+            searchField.widthAnchor.constraint(equalToConstant: 160),
+
+            searchCountLabel.trailingAnchor.constraint(equalTo: searchField.trailingAnchor, constant: -20),
+            searchCountLabel.centerYAnchor.constraint(equalTo: searchField.centerYAnchor),
+        ])
+    }
+
+    @objc private func outlineButtonClicked() {
+        guard let tabBar = parentTabBar else { return }
+        tabBarDelegate?.tabBarDidToggleOutline(tabBar)
+    }
+
     func focusSearchField() {
         window?.makeFirstResponder(searchField)
     }
@@ -231,38 +255,37 @@ class TabBarView: NSView {
 
     override func updateLayer() {
         if NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-            layer?.backgroundColor = NSColor(white: 0.15, alpha: 1.0).cgColor
+            layer?.backgroundColor = NSColor(white: 0.18, alpha: 1.0).cgColor
         } else {
-            layer?.backgroundColor = NSColor(white: 0.90, alpha: 1.0).cgColor
+            layer?.backgroundColor = NSColor(white: 0.93, alpha: 1.0).cgColor
         }
     }
 }
 
-// MARK: - NSSearchFieldDelegate
-
-extension TabBarView: NSSearchFieldDelegate {
+extension ToolbarView: NSSearchFieldDelegate {
     func controlTextDidChange(_ obj: Notification) {
-        guard let field = obj.object as? NSSearchField else { return }
+        guard let field = obj.object as? NSSearchField, let tabBar = parentTabBar else { return }
         let query = field.stringValue
         if query.isEmpty {
             searchCountLabel.isHidden = true
-            delegate?.tabBarDidEndSearch(self)
+            tabBarDelegate?.tabBarDidEndSearch(tabBar)
         } else {
-            delegate?.tabBar(self, didSearch: query)
+            tabBarDelegate?.tabBar(tabBar, didSearch: query)
         }
     }
 
     func controlTextDidEndEditing(_ obj: Notification) {
-        guard let field = obj.object as? NSSearchField else { return }
+        guard let field = obj.object as? NSSearchField, let tabBar = parentTabBar else { return }
         if field.stringValue.isEmpty {
             searchCountLabel.isHidden = true
-            delegate?.tabBarDidEndSearch(self)
+            tabBarDelegate?.tabBarDidEndSearch(tabBar)
         }
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(insertNewline(_:)) {
-            delegate?.tabBarDidSearchNext(self)
+            guard let tabBar = parentTabBar else { return false }
+            tabBarDelegate?.tabBarDidSearchNext(tabBar)
             return true
         }
         return false
@@ -275,6 +298,8 @@ private class TabButtonView: NSView {
     let index: Int
     let isSelected: Bool
     weak var tabBar: TabBarView?
+
+    override var mouseDownCanMoveWindow: Bool { false }
 
     init(index: Int, isSelected: Bool) {
         self.index = index
@@ -321,6 +346,8 @@ private class TabButtonView: NSView {
 
 private class CloseButton: NSButton {
     let index: Int
+
+    override var mouseDownCanMoveWindow: Bool { false }
 
     init(index: Int) {
         self.index = index

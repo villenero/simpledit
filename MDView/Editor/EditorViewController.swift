@@ -14,6 +14,7 @@ class EditorViewController: NSViewController {
     private weak var document: Document?
     private var isMarkdownMode: Bool = false
     private var currentStyle: EditorStyle = .light
+    private var preferencesObserver: NSObjectProtocol?
 
     // MARK: - Lifecycle
 
@@ -26,6 +27,14 @@ class EditorViewController: NSViewController {
         setupWebView()
         setupStatusBar()
         layoutSubviews()
+
+        preferencesObserver = NotificationCenter.default.addObserver(
+            forName: Notification.Name("PreferencesChanged"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.applyPreferences()
+        }
     }
 
     // MARK: - Setup
@@ -134,11 +143,31 @@ class EditorViewController: NSViewController {
         updateStatusBar()
     }
 
+    private var isMermaidEnabled: Bool {
+        UserDefaults.standard.bool(forKey: "EnableMermaid")
+    }
+
+    private var preferredFontSize: CGFloat {
+        let size = UserDefaults.standard.object(forKey: "FontSize") as? Double ?? 13
+        return CGFloat(size)
+    }
+
+    private func applyPreferences() {
+        // Update plain-text font size
+        let fontSize = preferredFontSize
+        textView.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+
+        // Re-render markdown if active
+        if isMarkdownMode, let text = document?.text {
+            showMarkdownView(text)
+        }
+    }
+
     private func showMarkdownView(_ text: String) {
         scrollView.isHidden = true
         webView.isHidden = false
 
-        let html = markdownParser.toHTML(text)
+        let html = markdownParser.toHTML(text, mermaidEnabled: isMermaidEnabled)
         let fullHTML = wrapInTemplate(html)
         webView.loadHTMLString(fullHTML, baseURL: nil)
     }
@@ -167,7 +196,7 @@ class EditorViewController: NSViewController {
         }
 
         if isMarkdownMode, let text = document?.text {
-            let html = markdownParser.toHTML(text)
+            let html = markdownParser.toHTML(text, mermaidEnabled: isMermaidEnabled)
             let fullHTML = wrapInTemplate(html)
             webView.loadHTMLString(fullHTML, baseURL: nil)
         }
@@ -176,7 +205,20 @@ class EditorViewController: NSViewController {
     // MARK: - HTML Template
 
     private func wrapInTemplate(_ body: String) -> String {
-        """
+        let mermaidScript: String
+        if isMermaidEnabled,
+           let url = Bundle.module.url(forResource: "mermaid.min", withExtension: "js"),
+           let js = try? String(contentsOf: url, encoding: .utf8) {
+            let theme = currentStyle.css.mermaidTheme
+            mermaidScript = """
+            <script>\(js)</script>
+            <script>mermaid.initialize({ startOnLoad: true, theme: '\(theme)' });</script>
+            """
+        } else {
+            mermaidScript = ""
+        }
+
+        return """
         <!DOCTYPE html>
         <html>
         <head>
@@ -185,6 +227,7 @@ class EditorViewController: NSViewController {
         <style>
         \(currentStyle.markdownCSS)
         </style>
+        \(mermaidScript)
         </head>
         <body>
         \(body)
@@ -194,6 +237,10 @@ class EditorViewController: NSViewController {
     }
 
     // MARK: - Status Bar
+
+    func updateFilePath(_ path: String?) {
+        statusBar.updateFilePath(path)
+    }
 
     private func updateStatusBar() {
         let text: String

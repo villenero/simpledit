@@ -11,6 +11,7 @@ let package = Package(
             exclude: ["Resources/Info.plist", "Resources/Assets.xcassets"],
             resources: [
                 .copy("Resources/icon.png"),
+                .copy("Resources/mermaid.min.js"),
                 .process("Markdown/Resources")
             ]
         ),

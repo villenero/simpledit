@@ -8,6 +8,7 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     private(set) var selectedIndex: Int = -1
 
     private let tabBar = TabBarView()
+    private let toolbar = ToolbarView()
     let editorViewController = EditorViewController()
     private let containerView = DragContainerView()
     private var welcomeView: NSView!
@@ -15,16 +16,21 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     private let outlineView = OutlineView()
     private var isOutlineVisible = false
     private var outlineWidth: CGFloat = 220
+    private let tabBarHeight: CGFloat = 38
+    private let toolbarHeight: CGFloat = 30
 
     private init() {
-        let window = NSWindow(
+        let window = MDViewWindow(
             contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.minSize = NSSize(width: 400, height: 300)
-        window.title = "MDView"
+        window.title = ""
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = false
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
 
@@ -43,34 +49,55 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // Prevent NSDocument from overriding our window title and representedURL
+    override func synchronizeWindowTitleWithDocumentName() { /* no-op */ }
+
     // MARK: - UI Setup
 
     private func setupUI() {
         guard let window = window else { return }
 
-        let contentFrame = window.contentLayoutRect
-        containerView.frame = contentFrame
+        // Use full window bounds (includes titlebar area thanks to fullSizeContentView)
+        let fullFrame = window.contentView?.bounds ?? window.contentLayoutRect
+        containerView.frame = fullFrame
         containerView.autoresizingMask = [.width, .height]
         window.contentView = containerView
 
-        let tabBarHeight: CGFloat = 38
-        tabBar.frame = NSRect(x: 0, y: contentFrame.height - tabBarHeight,
-                              width: contentFrame.width, height: tabBarHeight)
+        // Tab bar at the very top — same row as traffic lights (Chrome-style)
+        // 78px left margin to clear the traffic light buttons
+        tabBar.frame = NSRect(x: 78, y: fullFrame.height - tabBarHeight,
+                              width: fullFrame.width - 78, height: tabBarHeight)
         tabBar.autoresizingMask = [.width, .minYMargin]
         tabBar.delegate = self
         containerView.addSubview(tabBar)
 
+        // Register tab bar with the window for event forwarding
+        (window as? MDViewWindow)?.tabBarView = tabBar
+
+        // Content starts below the safe area (below titlebar)
+        let safeTop = window.contentLayoutRect.height
+
+        // Toolbar below the titlebar area (outline + search)
+        let toolbarY = safeTop - toolbarHeight
+        toolbar.frame = NSRect(x: 0, y: toolbarY,
+                               width: fullFrame.width, height: toolbarHeight)
+        toolbar.autoresizingMask = [.width, .minYMargin]
+        toolbar.parentTabBar = tabBar
+        toolbar.tabBarDelegate = self
+        containerView.addSubview(toolbar)
+
+        // Editor fills remaining space
         let editorView = editorViewController.view
         editorView.frame = NSRect(x: 0, y: 0,
-                                  width: contentFrame.width,
-                                  height: contentFrame.height - tabBarHeight)
+                                  width: fullFrame.width,
+                                  height: toolbarY)
         editorView.autoresizingMask = [.width, .height]
         containerView.addSubview(editorView)
 
         // Outline sidebar (hidden initially)
         outlineView.frame = NSRect(x: -outlineWidth, y: 0,
                                    width: outlineWidth,
-                                   height: contentFrame.height - tabBarHeight)
+                                   height: toolbarY)
         outlineView.autoresizingMask = [.height, .maxXMargin]
         containerView.addSubview(outlineView)
 
@@ -133,14 +160,15 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     private func showWelcomeState() {
         welcomeView.isHidden = false
         tabBar.isHidden = true
+        toolbar.isHidden = true
         editorViewController.view.isHidden = true
-        window?.title = "MDView"
-        window?.representedURL = nil
+        editorViewController.updateFilePath(nil)
     }
 
     private func showEditorState() {
         welcomeView.isHidden = true
         tabBar.isHidden = false
+        toolbar.isHidden = false
         editorViewController.view.isHidden = false
     }
 
@@ -216,20 +244,19 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
 
     private func updateWindowTitle() {
         guard selectedIndex >= 0, selectedIndex < documents.count else {
-            window?.title = "MDView"
+            editorViewController.updateFilePath(nil)
             return
         }
         let doc = documents[selectedIndex]
-        window?.title = doc.displayName
-        window?.representedURL = doc.fileURL
+        editorViewController.updateFilePath(doc.fileURL?.path)
     }
 
     // MARK: - Outline
 
     private func toggleOutline() {
-        let tabBarHeight: CGFloat = 38
         let contentFrame = containerView.bounds
         let editorView = editorViewController.view
+        let bodyHeight = contentFrame.height - toolbarHeight
 
         isOutlineVisible.toggle()
 
@@ -241,20 +268,20 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
                 outlineView.animator().frame = NSRect(
                     x: 0, y: 0,
                     width: outlineWidth,
-                    height: contentFrame.height - tabBarHeight)
+                    height: bodyHeight)
                 editorView.animator().frame = NSRect(
                     x: outlineWidth, y: 0,
                     width: contentFrame.width - outlineWidth,
-                    height: contentFrame.height - tabBarHeight)
+                    height: bodyHeight)
             } else {
                 outlineView.animator().frame = NSRect(
                     x: -outlineWidth, y: 0,
                     width: outlineWidth,
-                    height: contentFrame.height - tabBarHeight)
+                    height: bodyHeight)
                 editorView.animator().frame = NSRect(
                     x: 0, y: 0,
                     width: contentFrame.width,
-                    height: contentFrame.height - tabBarHeight)
+                    height: bodyHeight)
             }
         }
 
@@ -265,19 +292,19 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
 
     private func resizeOutline(to newWidth: CGFloat) {
         guard isOutlineVisible else { return }
-        let tabBarHeight: CGFloat = 38
         let contentFrame = containerView.bounds
         let editorView = editorViewController.view
+        let bodyHeight = contentFrame.height - toolbarHeight
 
         outlineWidth = newWidth
         outlineView.frame = NSRect(
             x: 0, y: 0,
             width: outlineWidth,
-            height: contentFrame.height - tabBarHeight)
+            height: bodyHeight)
         editorView.frame = NSRect(
             x: outlineWidth, y: 0,
             width: contentFrame.width - outlineWidth,
-            height: contentFrame.height - tabBarHeight)
+            height: bodyHeight)
     }
 
     private func updateOutline() {
@@ -301,12 +328,12 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
 
     func tabBar(_ tabBar: TabBarView, didSearch query: String) {
         let result = editorViewController.performSearch(query: query)
-        tabBar.updateSearchCount(current: result.current, total: result.total)
+        toolbar.updateSearchCount(current: result.current, total: result.total)
     }
 
     func tabBarDidSearchNext(_ tabBar: TabBarView) {
         let result = editorViewController.searchNext()
-        tabBar.updateSearchCount(current: result.current, total: result.total)
+        toolbar.updateSearchCount(current: result.current, total: result.total)
     }
 
     func tabBarDidEndSearch(_ tabBar: TabBarView) {
@@ -316,7 +343,7 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     // MARK: - Find
 
     @objc func focusSearch(_ sender: Any?) {
-        tabBar.focusSearchField()
+        toolbar.focusSearchField()
     }
 
     // MARK: - Show
@@ -331,6 +358,36 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
 private class PassthroughView: NSView {
     override func hitTest(_ aPoint: NSPoint) -> NSView? {
         return nil
+    }
+}
+
+// MARK: - Window (Chrome-style titlebar tabs)
+
+private class MDViewWindow: NSWindow {
+    weak var tabBarView: TabBarView?
+
+    override var representedURL: URL? {
+        get { nil }
+        set { }
+    }
+    override var representedFilename: String {
+        get { "" }
+        set { }
+    }
+    override func setTitleWithRepresentedFilename(_ filename: String) { }
+
+    // Forward mouse events in the titlebar area to the tab bar
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown,
+           let tabBar = tabBarView, !tabBar.isHidden {
+            let pointInTabBar = tabBar.convert(event.locationInWindow, from: nil)
+            if tabBar.bounds.contains(pointInTabBar),
+               let target = tabBar.hitTest(pointInTabBar) {
+                target.mouseDown(with: event)
+                return
+            }
+        }
+        super.sendEvent(event)
     }
 }
 

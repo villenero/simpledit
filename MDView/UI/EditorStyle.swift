@@ -21,6 +21,7 @@ struct EditorStyle {
         let tableBorderColor: String
         let thBg: String
         let trEvenBg: String
+        let mermaidTheme: String
     }
 
     var markdownCSS: String {
@@ -96,6 +97,9 @@ struct EditorStyle {
         }
         th { font-weight: 600; background-color: \(t.thBg); }
         tr:nth-child(even) td { background-color: \(t.trEvenBg); }
+
+        .mermaid { text-align: center; margin: 16px 0; overflow-x: auto; }
+        .mermaid svg { max-width: 100%; }
         """
     }
 }
@@ -124,7 +128,8 @@ extension EditorStyle {
             hrColor: "#d2d2d7",
             tableBorderColor: "#d2d2d7",
             thBg: "rgba(0,0,0,0.04)",
-            trEvenBg: "rgba(0,0,0,0.02)"
+            trEvenBg: "rgba(0,0,0,0.02)",
+            mermaidTheme: "default"
         )
     )
 
@@ -146,7 +151,8 @@ extension EditorStyle {
             hrColor: "#38383a",
             tableBorderColor: "#38383a",
             thBg: "rgba(255,255,255,0.08)",
-            trEvenBg: "rgba(255,255,255,0.04)"
+            trEvenBg: "rgba(255,255,255,0.04)",
+            mermaidTheme: "dark"
         )
     )
 
@@ -168,7 +174,8 @@ extension EditorStyle {
             hrColor: "#33ff00",
             tableBorderColor: "rgba(51,255,0,0.25)",
             thBg: "rgba(51,255,0,0.08)",
-            trEvenBg: "rgba(51,255,0,0.04)"
+            trEvenBg: "rgba(51,255,0,0.04)",
+            mermaidTheme: "dark"
         )
     )
 
@@ -190,7 +197,8 @@ extension EditorStyle {
             hrColor: "#4c566a",
             tableBorderColor: "#4c566a",
             thBg: "rgba(136,192,208,0.08)",
-            trEvenBg: "rgba(136,192,208,0.04)"
+            trEvenBg: "rgba(136,192,208,0.04)",
+            mermaidTheme: "dark"
         )
     )
 
@@ -212,7 +220,8 @@ extension EditorStyle {
             hrColor: "#eee8d5",
             tableBorderColor: "#eee8d5",
             thBg: "rgba(38,139,210,0.06)",
-            trEvenBg: "rgba(38,139,210,0.03)"
+            trEvenBg: "rgba(38,139,210,0.03)",
+            mermaidTheme: "default"
         )
     )
 
@@ -234,7 +243,8 @@ extension EditorStyle {
             hrColor: "#c4b5a0",
             tableBorderColor: "#c4b5a0",
             thBg: "rgba(139,69,19,0.06)",
-            trEvenBg: "rgba(139,69,19,0.03)"
+            trEvenBg: "rgba(139,69,19,0.03)",
+            mermaidTheme: "default"
         )
     )
 }

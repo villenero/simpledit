@@ -4,7 +4,7 @@ RELEASE_BIN = $(shell swift build -c release --show-bin-path 2>/dev/null || echo
 BUNDLE_NAME = MDView_MDView.bundle
 ICONS_SRC = MDView/Resources/Assets.xcassets/AppIcon.appiconset
 APP = $(DIST)/MDView.app
-VERSION = 1.0.0
+VERSION = 1.0.1
 
 .PHONY: build run clean app dmg
 
