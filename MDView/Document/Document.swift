@@ -6,6 +6,7 @@ class Document: NSDocument {
     var text: String = ""
     var encoding: String.Encoding = .utf8
     var isMarkdown: Bool = false
+    var outlineVisible: Bool = false
 
     override class var autosavesInPlace: Bool { true }
     override class var autosavesDrafts: Bool { true }

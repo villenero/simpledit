@@ -44,6 +44,8 @@ class OutlineView: NSView {
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.contentView = FlippedClipView()
+        scrollView.contentView.drawsBackground = false
         addSubview(scrollView)
 
         stackView.orientation = .vertical
@@ -229,6 +231,29 @@ private class OutlineResizeHandle: NSView {
     var onDrag: ((CGFloat) -> Void)?
     private var initialX: CGFloat = 0
 
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        updateBackground()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        wantsLayer = true
+        updateBackground()
+    }
+
+    private func updateBackground() {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        layer?.backgroundColor = isDark
+            ? NSColor(white: 0.18, alpha: 1.0).cgColor
+            : NSColor(white: 0.93, alpha: 1.0).cgColor
+    }
+
+    override func updateLayer() {
+        updateBackground()
+    }
+
     override func resetCursorRects() {
         addCursorRect(bounds, cursor: .resizeLeftRight)
     }
@@ -242,6 +267,27 @@ private class OutlineResizeHandle: NSView {
         initialX = event.locationInWindow.x
         onDrag?(delta)
     }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        // Draw grip dots in the center
+        let dotColor: NSColor = .tertiaryLabelColor
+        dotColor.setFill()
+
+        let dotSize: CGFloat = 2
+        let dotSpacing: CGFloat = 4
+        let dotCount = 3
+        let totalHeight = CGFloat(dotCount) * dotSize + CGFloat(dotCount - 1) * dotSpacing
+        let startY = (bounds.height - totalHeight) / 2
+        let x = (bounds.width - dotSize) / 2
+
+        for i in 0..<dotCount {
+            let y = startY + CGFloat(i) * (dotSize + dotSpacing)
+            let dot = NSRect(x: x, y: y, width: dotSize, height: dotSize)
+            NSBezierPath(ovalIn: dot).fill()
+        }
+    }
 }
 
 // MARK: - Comparable Clamped
@@ -250,4 +296,10 @@ private extension Comparable {
     func clamped(to range: ClosedRange<Self>) -> Self {
         min(max(self, range.lowerBound), range.upperBound)
     }
+}
+
+// MARK: - Flipped Clip View (top-aligned content)
+
+private class FlippedClipView: NSClipView {
+    override var isFlipped: Bool { true }
 }

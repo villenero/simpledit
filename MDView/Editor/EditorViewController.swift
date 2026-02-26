@@ -8,7 +8,7 @@ class EditorViewController: NSViewController {
     private var textView: NSTextView!
     private var scrollView: NSScrollView!
     private var webView: WKWebView!
-    private var statusBar: StatusBarView!
+    private(set) var statusBar: StatusBarView!
 
     private let markdownParser = MarkdownParser()
     private weak var document: Document?
@@ -100,28 +100,22 @@ class EditorViewController: NSViewController {
         statusBar.onStyleChanged = { [weak self] style in
             self?.applyStyle(style)
         }
-        view.addSubview(statusBar)
+        // Status bar is added to the window's containerView by MainWindowController
     }
 
     private func layoutSubviews() {
         NSLayoutConstraint.activate([
-            // Status bar at bottom
-            statusBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            statusBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            statusBar.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            statusBar.heightAnchor.constraint(equalToConstant: 30),
-
             // Scroll view (plain text)
             scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
             // Web view (markdown)
             webView.topAnchor.constraint(equalTo: view.topAnchor),
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            webView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
     }
 
@@ -239,7 +233,7 @@ class EditorViewController: NSViewController {
     // MARK: - Status Bar
 
     func updateFilePath(_ path: String?) {
-        statusBar.updateFilePath(path)
+        // Path is now displayed in the toolbar
     }
 
     private func updateStatusBar() {

@@ -7,6 +7,7 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     private(set) var documents: [Document] = []
     private(set) var selectedIndex: Int = -1
 
+    private let titlebarBackground = TitlebarBackgroundView()
     private let tabBar = TabBarView()
     private let toolbar = ToolbarView()
     let editorViewController = EditorViewController()
@@ -18,6 +19,7 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     private var outlineWidth: CGFloat = 220
     private let tabBarHeight: CGFloat = 38
     private let toolbarHeight: CGFloat = 30
+    private let statusBarHeight: CGFloat = 24
 
     private init() {
         let window = MDViewWindow(
@@ -63,6 +65,12 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         containerView.autoresizingMask = [.width, .height]
         window.contentView = containerView
 
+        // Background behind traffic lights to match tab bar color
+        titlebarBackground.frame = NSRect(x: 0, y: fullFrame.height - tabBarHeight,
+                                          width: 78, height: tabBarHeight)
+        titlebarBackground.autoresizingMask = [.minYMargin]
+        containerView.addSubview(titlebarBackground)
+
         // Tab bar at the very top — same row as traffic lights (Chrome-style)
         // 78px left margin to clear the traffic light buttons
         tabBar.frame = NSRect(x: 78, y: fullFrame.height - tabBarHeight,
@@ -86,20 +94,32 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         toolbar.tabBarDelegate = self
         containerView.addSubview(toolbar)
 
-        // Editor fills remaining space
+        // Editor fills remaining space (above status bar, below toolbar)
+        // Access .view first to trigger loadView() and create the status bar
         let editorView = editorViewController.view
-        editorView.frame = NSRect(x: 0, y: 0,
+        let contentBottom = statusBarHeight
+        editorView.frame = NSRect(x: 0, y: contentBottom,
                                   width: fullFrame.width,
-                                  height: toolbarY)
+                                  height: toolbarY - contentBottom)
         editorView.autoresizingMask = [.width, .height]
         containerView.addSubview(editorView)
 
-        // Outline sidebar (hidden initially)
-        outlineView.frame = NSRect(x: -outlineWidth, y: 0,
+        // Outline sidebar (hidden initially, above status bar)
+        outlineView.frame = NSRect(x: -outlineWidth, y: contentBottom,
                                    width: outlineWidth,
-                                   height: toolbarY)
+                                   height: toolbarY - contentBottom)
         outlineView.autoresizingMask = [.height, .maxXMargin]
         containerView.addSubview(outlineView)
+
+        // Status bar at bottom (full width, independent of outline)
+        // Added last so it's on top in z-order
+        let statusBar = editorViewController.statusBar!
+        statusBar.removeFromSuperview()
+        statusBar.translatesAutoresizingMaskIntoConstraints = true
+        statusBar.frame = NSRect(x: 0, y: 0,
+                                 width: fullFrame.width, height: statusBarHeight)
+        statusBar.autoresizingMask = [.width, .maxYMargin]
+        containerView.addSubview(statusBar)
 
         outlineView.onItemSelected = { [weak self] item in
             self?.editorViewController.scrollToLine(item.lineIndex)
@@ -159,17 +179,21 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
 
     private func showWelcomeState() {
         welcomeView.isHidden = false
+        titlebarBackground.isHidden = true
         tabBar.isHidden = true
         toolbar.isHidden = true
         editorViewController.view.isHidden = true
-        editorViewController.updateFilePath(nil)
+        editorViewController.statusBar.isHidden = true
+        toolbar.updateFilePath(nil)
     }
 
     private func showEditorState() {
         welcomeView.isHidden = true
+        titlebarBackground.isHidden = false
         tabBar.isHidden = false
         toolbar.isHidden = false
         editorViewController.view.isHidden = false
+        editorViewController.statusBar.isHidden = false
     }
 
     // MARK: - Drag & Drop
@@ -213,6 +237,14 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
             let newIndex = min(index, documents.count - 1)
             selectedIndex = newIndex
             editorViewController.loadDocument(documents[newIndex])
+
+            // Restore outline state for the new tab
+            let shouldShowOutline = documents[newIndex].outlineVisible
+            if shouldShowOutline != isOutlineVisible {
+                toggleOutline()
+            } else if isOutlineVisible {
+                updateOutline()
+            }
         } else {
             // Active document didn't change, just fix the index
             selectedIndex = documents.firstIndex(where: { $0 === currentDoc }) ?? 0
@@ -224,11 +256,25 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     func selectTab(at index: Int) {
         guard index >= 0, index < documents.count else { return }
         guard index != selectedIndex else { return }
+
+        // Save outline state for the previous tab
+        if selectedIndex >= 0, selectedIndex < documents.count {
+            documents[selectedIndex].outlineVisible = isOutlineVisible
+        }
+
         selectedIndex = index
         editorViewController.loadDocument(documents[index])
         updateTabBar()
         updateWindowTitle()
-        if isOutlineVisible { updateOutline() }
+
+        // Restore outline state for the new tab
+        let shouldShowOutline = documents[index].outlineVisible
+        if shouldShowOutline != isOutlineVisible {
+            toggleOutline()
+        } else if isOutlineVisible {
+            updateOutline()
+        }
+
         window?.makeKeyAndOrderFront(nil)
     }
 
@@ -236,7 +282,8 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         let items = documents.enumerated().map { (i, doc) in
             TabItem(
                 title: doc.displayName,
-                isSelected: i == selectedIndex
+                isSelected: i == selectedIndex,
+                isMarkdown: doc.isMarkdown
             )
         }
         tabBar.update(tabs: items)
@@ -244,11 +291,11 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
 
     private func updateWindowTitle() {
         guard selectedIndex >= 0, selectedIndex < documents.count else {
-            editorViewController.updateFilePath(nil)
+            toolbar.updateFilePath(nil)
             return
         }
         let doc = documents[selectedIndex]
-        editorViewController.updateFilePath(doc.fileURL?.path)
+        toolbar.updateFilePath(doc.fileURL?.path)
     }
 
     // MARK: - Outline
@@ -256,9 +303,15 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     private func toggleOutline() {
         let contentFrame = containerView.bounds
         let editorView = editorViewController.view
-        let bodyHeight = contentFrame.height - toolbarHeight
+        let bodyTop = statusBarHeight
+        let bodyHeight = toolbar.frame.origin.y - bodyTop
 
         isOutlineVisible.toggle()
+
+        // Save state to current document
+        if selectedIndex >= 0, selectedIndex < documents.count {
+            documents[selectedIndex].outlineVisible = isOutlineVisible
+        }
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
@@ -266,20 +319,20 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
 
             if isOutlineVisible {
                 outlineView.animator().frame = NSRect(
-                    x: 0, y: 0,
+                    x: 0, y: bodyTop,
                     width: outlineWidth,
                     height: bodyHeight)
                 editorView.animator().frame = NSRect(
-                    x: outlineWidth, y: 0,
+                    x: outlineWidth, y: bodyTop,
                     width: contentFrame.width - outlineWidth,
                     height: bodyHeight)
             } else {
                 outlineView.animator().frame = NSRect(
-                    x: -outlineWidth, y: 0,
+                    x: -outlineWidth, y: bodyTop,
                     width: outlineWidth,
                     height: bodyHeight)
                 editorView.animator().frame = NSRect(
-                    x: 0, y: 0,
+                    x: 0, y: bodyTop,
                     width: contentFrame.width,
                     height: bodyHeight)
             }
@@ -294,15 +347,16 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         guard isOutlineVisible else { return }
         let contentFrame = containerView.bounds
         let editorView = editorViewController.view
-        let bodyHeight = contentFrame.height - toolbarHeight
+        let bodyTop = statusBarHeight
+        let bodyHeight = toolbar.frame.origin.y - bodyTop
 
         outlineWidth = newWidth
         outlineView.frame = NSRect(
-            x: 0, y: 0,
+            x: 0, y: bodyTop,
             width: outlineWidth,
             height: bodyHeight)
         editorView.frame = NSRect(
-            x: outlineWidth, y: 0,
+            x: outlineWidth, y: bodyTop,
             width: contentFrame.width - outlineWidth,
             height: bodyHeight)
     }
@@ -381,13 +435,39 @@ private class MDViewWindow: NSWindow {
         if event.type == .leftMouseDown,
            let tabBar = tabBarView, !tabBar.isHidden {
             let pointInTabBar = tabBar.convert(event.locationInWindow, from: nil)
-            if tabBar.bounds.contains(pointInTabBar),
-               let target = tabBar.hitTest(pointInTabBar) {
-                target.mouseDown(with: event)
+            if tabBar.bounds.contains(pointInTabBar) {
+                tabBar.handleClickAtPoint(pointInTabBar)
                 return
             }
         }
         super.sendEvent(event)
+    }
+}
+
+// MARK: - Titlebar Background (matches tab bar color behind traffic lights)
+
+private class TitlebarBackgroundView: NSView {
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        updateBackground()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        wantsLayer = true
+        updateBackground()
+    }
+
+    private func updateBackground() {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        layer?.backgroundColor = isDark
+            ? NSColor(white: 0.15, alpha: 1.0).cgColor
+            : NSColor(white: 0.90, alpha: 1.0).cgColor
+    }
+
+    override func updateLayer() {
+        updateBackground()
     }
 }
 

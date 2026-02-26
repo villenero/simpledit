@@ -12,6 +12,7 @@ protocol TabBarViewDelegate: AnyObject {
 struct TabItem {
     let title: String
     let isSelected: Bool
+    let isMarkdown: Bool
 }
 
 class TabBarView: NSView {
@@ -51,9 +52,9 @@ class TabBarView: NSView {
         addSubview(scrollView)
 
         stackView.orientation = .horizontal
-        stackView.spacing = 0
+        stackView.spacing = 4
         stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+        stackView.edgeInsets = NSEdgeInsets(top: 6, left: 4, bottom: 0, right: 4)
         scrollView.documentView = stackView
 
         NSLayoutConstraint.activate([
@@ -77,29 +78,68 @@ class TabBarView: NSView {
         rebuildTabs()
     }
 
+    private var tabWidthConstraints: [NSLayoutConstraint] = []
+    private let maxTabWidth: CGFloat = 150
+    private let minTabWidth: CGFloat = 40
+
     private func rebuildTabs() {
         for view in tabButtons {
             stackView.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
         tabButtons.removeAll()
+        tabWidthConstraints.removeAll()
 
         for (index, tab) in tabs.enumerated() {
             let tabView = makeTabView(tab, index: index)
             stackView.addArrangedSubview(tabView)
             tabButtons.append(tabView)
         }
+
+        updateTabWidths()
+    }
+
+    private func updateTabWidths() {
+        guard !tabs.isEmpty else { return }
+
+        let edgeInsets: CGFloat = 8  // left + right padding of stackView
+        let totalSpacing = CGFloat(max(0, tabs.count - 1)) * stackView.spacing
+        let availableWidth = bounds.width - edgeInsets - totalSpacing
+        let idealWidth = min(maxTabWidth, availableWidth / CGFloat(tabs.count))
+        let tabWidth = max(minTabWidth, idealWidth)
+
+        for constraint in tabWidthConstraints {
+            constraint.constant = tabWidth
+        }
+    }
+
+    override func layout() {
+        super.layout()
+        updateTabWidths()
     }
 
     private func makeTabView(_ tab: TabItem, index: Int) -> NSView {
         let container = TabButtonView(index: index, isSelected: tab.isSelected)
         container.translatesAutoresizingMaskIntoConstraints = false
 
+        // File type icon
+        let iconName = tab.isMarkdown ? "doc.richtext" : "doc.text"
+        let iconView = NSImageView()
+        iconView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
+        iconView.contentTintColor = tab.isSelected ? .labelColor : .tertiaryLabelColor
+        iconView.imageScaling = .scaleProportionallyDown
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+
+        // Label with fade mask
         let label = NSTextField(labelWithString: tab.title)
-        label.font = NSFont.systemFont(ofSize: 12.5, weight: tab.isSelected ? .medium : .regular)
+        label.font = NSFont.systemFont(ofSize: 12, weight: tab.isSelected ? .medium : .regular)
         label.textColor = tab.isSelected ? .labelColor : .secondaryLabelColor
-        label.lineBreakMode = .byTruncatingMiddle
+        label.lineBreakMode = .byClipping
         label.translatesAutoresizingMaskIntoConstraints = false
+
+        let labelContainer = FadingLabelView()
+        labelContainer.translatesAutoresizingMaskIntoConstraints = false
+        labelContainer.addSubview(label)
 
         let closeButton = CloseButton(index: index)
         closeButton.target = self
@@ -107,32 +147,35 @@ class TabBarView: NSView {
         closeButton.translatesAutoresizingMaskIntoConstraints = false
 
         container.tabBar = self
-        container.addSubview(label)
+        container.addSubview(iconView)
+        container.addSubview(labelContainer)
         container.addSubview(closeButton)
 
-        // Vertical separator on the right
-        let sep = NSBox()
-        sep.boxType = .separator
-        sep.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(sep)
+        let widthConstraint = container.widthAnchor.constraint(equalToConstant: maxTabWidth)
+        tabWidthConstraints.append(widthConstraint)
 
         NSLayoutConstraint.activate([
-            container.widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
-            container.widthAnchor.constraint(lessThanOrEqualToConstant: 200),
+            widthConstraint,
+            container.heightAnchor.constraint(equalToConstant: 28),
 
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
-            label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            label.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -6),
+            iconView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
+            iconView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 14),
+            iconView.heightAnchor.constraint(equalToConstant: 14),
 
-            closeButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -10),
+            labelContainer.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 4),
+            labelContainer.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -4),
+            labelContainer.topAnchor.constraint(equalTo: container.topAnchor),
+            labelContainer.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+
+            label.leadingAnchor.constraint(equalTo: labelContainer.leadingAnchor),
+            label.centerYAnchor.constraint(equalTo: labelContainer.centerYAnchor),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: labelContainer.trailingAnchor),
+
+            closeButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
             closeButton.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             closeButton.widthAnchor.constraint(equalToConstant: 16),
             closeButton.heightAnchor.constraint(equalToConstant: 16),
-
-            sep.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            sep.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
-            sep.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8),
-            sep.widthAnchor.constraint(equalToConstant: 1),
         ])
 
         return container
@@ -140,6 +183,26 @@ class TabBarView: NSView {
 
     func handleTabClick(at index: Int) {
         delegate?.tabBar(self, didSelectTabAt: index)
+    }
+
+    /// Handle a click at a point in the tab bar's own coordinate system.
+    /// Used by MDViewWindow.sendEvent to bypass titlebar hitTest issues.
+    func handleClickAtPoint(_ pointInSelf: NSPoint) {
+        let pointInStack = stackView.convert(pointInSelf, from: self)
+        for button in tabButtons {
+            guard button.frame.contains(pointInStack) else { continue }
+            guard let tabButton = button as? TabButtonView else { continue }
+            // Check close button first
+            let pointInButton = button.convert(pointInSelf, from: self)
+            for subview in button.subviews {
+                if subview is NSButton, subview.frame.contains(pointInButton) {
+                    delegate?.tabBar(self, didCloseTabAt: tabButton.index)
+                    return
+                }
+            }
+            delegate?.tabBar(self, didSelectTabAt: tabButton.index)
+            return
+        }
     }
 
     @objc private func closeTabClicked(_ sender: CloseButton) {
@@ -163,6 +226,7 @@ class ToolbarView: NSView {
     weak var parentTabBar: TabBarView?
 
     private let outlineButton = NSButton()
+    private let pathLabel = NSTextField(labelWithString: "")
     private let searchField = NSSearchField()
     private let searchCountLabel = NSTextField(labelWithString: "")
 
@@ -190,6 +254,12 @@ class ToolbarView: NSView {
         outlineButton.toolTip = "Show outline"
         outlineButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(outlineButton)
+
+        pathLabel.font = NSFont.systemFont(ofSize: 11)
+        pathLabel.textColor = .tertiaryLabelColor
+        pathLabel.lineBreakMode = .byTruncatingMiddle
+        pathLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(pathLabel)
 
         let separator = NSBox()
         separator.boxType = .separator
@@ -219,6 +289,10 @@ class ToolbarView: NSView {
             outlineButton.bottomAnchor.constraint(equalTo: separator.topAnchor),
             outlineButton.widthAnchor.constraint(equalToConstant: 38),
 
+            pathLabel.leadingAnchor.constraint(equalTo: outlineButton.trailingAnchor, constant: 4),
+            pathLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            pathLabel.trailingAnchor.constraint(lessThanOrEqualTo: searchField.leadingAnchor, constant: -10),
+
             separator.bottomAnchor.constraint(equalTo: bottomAnchor),
             separator.leadingAnchor.constraint(equalTo: leadingAnchor),
             separator.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -235,6 +309,10 @@ class ToolbarView: NSView {
     @objc private func outlineButtonClicked() {
         guard let tabBar = parentTabBar else { return }
         tabBarDelegate?.tabBarDidToggleOutline(tabBar)
+    }
+
+    func updateFilePath(_ path: String?) {
+        pathLabel.stringValue = path ?? ""
     }
 
     func focusSearchField() {
@@ -306,6 +384,9 @@ private class TabButtonView: NSView {
         self.isSelected = isSelected
         super.init(frame: .zero)
         wantsLayer = true
+        layer?.cornerRadius = 8
+        layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]  // top corners only (flipped coords)
+        layer?.masksToBounds = true
         updateBackground()
     }
 
@@ -326,19 +407,66 @@ private class TabButtonView: NSView {
     }
 
     private func updateBackground() {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         if isSelected {
-            if NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-                layer?.backgroundColor = NSColor(white: 0.22, alpha: 1.0).cgColor
-            } else {
-                layer?.backgroundColor = NSColor(white: 0.98, alpha: 1.0).cgColor
-            }
+            // Match toolbar color so active tab blends into toolbar
+            layer?.backgroundColor = isDark
+                ? NSColor(white: 0.18, alpha: 1.0).cgColor
+                : NSColor(white: 0.93, alpha: 1.0).cgColor
         } else {
-            layer?.backgroundColor = nil
+            layer?.backgroundColor = isDark
+                ? NSColor(white: 0.12, alpha: 1.0).cgColor
+                : NSColor(white: 0.84, alpha: 1.0).cgColor
         }
     }
 
     override func updateLayer() {
         updateBackground()
+    }
+}
+
+// MARK: - FadingLabelView
+
+private class FadingLabelView: NSView {
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+        updateFadeMask()
+    }
+
+    private func updateFadeMask() {
+        guard let label = subviews.first as? NSTextField else { return }
+        let labelWidth = label.intrinsicContentSize.width
+        let containerWidth = bounds.width
+
+        if labelWidth > containerWidth && containerWidth > 0 {
+            let fadeWidth: CGFloat = 20
+            let mask = CAGradientLayer()
+            mask.frame = bounds
+            mask.colors = [
+                NSColor.white.cgColor,
+                NSColor.white.cgColor,
+                NSColor.clear.cgColor,
+            ]
+            mask.startPoint = CGPoint(x: 0, y: 0.5)
+            mask.endPoint = CGPoint(x: 1, y: 0.5)
+            mask.locations = [
+                0,
+                NSNumber(value: Double(max(0, containerWidth - fadeWidth) / containerWidth)),
+                1,
+            ]
+            layer?.mask = mask
+        } else {
+            layer?.mask = nil
+        }
     }
 }
 
