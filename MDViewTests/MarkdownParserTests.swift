@@ -1,5 +1,5 @@
 import XCTest
-@testable import SimpleEdit
+@testable import MDView
 
 final class MarkdownParserTests: XCTestCase {
 

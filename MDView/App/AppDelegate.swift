@@ -3,7 +3,7 @@ import Cocoa
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Register custom document controller before NSApp initializes the default one
-    private let documentController = SimpleEditDocumentController()
+    private let documentController = MDViewDocumentController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Activate app and bring to front (needed when running as raw binary, not .app bundle)
@@ -23,9 +23,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Open files passed as command-line arguments
         let args = ProcessInfo.processInfo.arguments.dropFirst()
+        var openedAny = false
         for arg in args {
             let url = URL(fileURLWithPath: arg)
             if FileManager.default.fileExists(atPath: url.path) {
+                openedAny = true
+                NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, _ in }
+            }
+        }
+
+        // If no files were opened, try to open README.md from the current directory
+        if !openedAny {
+            let readmePath = (FileManager.default.currentDirectoryPath as NSString).appendingPathComponent("README.md")
+            if FileManager.default.fileExists(atPath: readmePath) {
+                let url = URL(fileURLWithPath: readmePath)
                 NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, _ in }
             }
         }
@@ -47,16 +58,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // App menu
         let appMenuItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About SimpleEdit", action: #selector(showAbout(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "About MDView", action: #selector(showAbout(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Preferences…", action: #selector(showPreferences(_:)), keyEquivalent: ",")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Hide SimpleEdit", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: "Hide MDView", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let hideOthersItem = appMenu.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
         hideOthersItem.keyEquivalentModifierMask = [.command, .option]
         appMenu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit SimpleEdit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit MDView", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)
 
@@ -117,7 +128,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Help menu
         let helpMenuItem = NSMenuItem()
         let helpMenu = NSMenu(title: "Help")
-        helpMenu.addItem(withTitle: "SimpleEdit Help", action: #selector(NSApplication.showHelp(_:)), keyEquivalent: "?")
+        helpMenu.addItem(withTitle: "MDView Help", action: #selector(NSApplication.showHelp(_:)), keyEquivalent: "?")
         helpMenuItem.submenu = helpMenu
         mainMenu.addItem(helpMenuItem)
         NSApp.helpMenu = helpMenu
@@ -137,7 +148,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showAbout(_ sender: Any?) {
         NSApp.orderFrontStandardAboutPanel(options: [
-            .applicationName: "SimpleEdit",
+            .applicationName: "MDView",
             .applicationVersion: "1.0.0",
             .version: "1",
             .credits: NSAttributedString(

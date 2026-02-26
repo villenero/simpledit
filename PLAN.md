@@ -1,4 +1,4 @@
-# SimpleEdit — Plan de desarrollo
+# MDView — Plan de desarrollo
 
 > Notepad ultraligero y nativo para macOS. Prioridad: velocidad de carga y agilidad en desktop.
 
@@ -32,8 +32,8 @@ Razones clave:
 ## 2. Arquitectura
 
 ```
-SimpleEdit.app
-├── SimpleEditApp.swift          # Entry point (@main, NSApplicationMain)
+MDView.app
+├── MDViewApp.swift          # Entry point (@main, NSApplicationMain)
 ├── AppDelegate.swift            # Ciclo de vida, menús
 ├── Document.swift               # NSDocument — open/save/autosave/versions
 ├── DocumentWindowController.swift
@@ -266,7 +266,7 @@ override func read(from data: Data, ofType typeName: String) throws {
 </array>
 ```
 
-Esto permite que Finder asocie SimpleEdit como app para abrir `.md` y `.txt`.
+Esto permite que Finder asocie MDView como app para abrir `.md` y `.txt`.
 
 ### Rendimiento del formato en vivo
 
@@ -332,11 +332,11 @@ Esto permite que Finder asocie SimpleEdit como app para abrir `.md` y `.txt`.
 ## 6. Estructura del proyecto Xcode
 
 ```
-SimpleEdit/
-├── SimpleEdit.xcodeproj
-├── SimpleEdit/
+MDView/
+├── MDView.xcodeproj
+├── MDView/
 │   ├── App/
-│   │   ├── SimpleEditApp.swift      # @main o AppDelegate
+│   │   ├── MDViewApp.swift      # @main o AppDelegate
 │   │   └── AppDelegate.swift
 │   ├── Document/
 │   │   ├── Document.swift           # NSDocument subclass
@@ -363,7 +363,7 @@ SimpleEdit/
 │       ├── Assets.xcassets
 │       ├── MainMenu.xib
 │       └── Info.plist
-└── SimpleEditTests/
+└── MDViewTests/
     └── DocumentTests.swift
 ```
 

@@ -5,17 +5,17 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>SimpleEdit</string>
+    <string>MDView</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIconName</key>
     <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
-    <string>com.simpledit.app</string>
+    <string>com.mdview.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>SimpleEdit</string>
+    <string>MDView</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -44,7 +44,7 @@
                 <string>public.plain-text</string>
             </array>
             <key>NSDocumentClass</key>
-            <string>SimpleEdit.Document</string>
+            <string>MDView.Document</string>
         </dict>
         <dict>
             <key>CFBundleTypeName</key>
@@ -56,7 +56,7 @@
                 <string>net.daringfireball.markdown</string>
             </array>
             <key>NSDocumentClass</key>
-            <string>SimpleEdit.Document</string>
+            <string>MDView.Document</string>
         </dict>
     </array>
     <key>UTImportedTypeDeclarations</key>

@@ -1,7 +1,7 @@
 import Cocoa
 import UniformTypeIdentifiers
 
-class SimpleEditDocumentController: NSDocumentController {
+class MDViewDocumentController: NSDocumentController {
 
     override var defaultType: String? {
         "public.plain-text"

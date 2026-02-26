@@ -2,23 +2,22 @@
 import PackageDescription
 
 let package = Package(
-    name: "SimpleEdit",
+    name: "MDView",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "SimpleEdit",
-            path: "SimpleEdit",
-            exclude: ["Resources/Info.plist"],
+            name: "MDView",
+            path: "MDView",
+            exclude: ["Resources/Info.plist", "Resources/Assets.xcassets"],
             resources: [
-                .process("Resources/Assets.xcassets"),
-                .process("Resources/icon.png"),
+                .copy("Resources/icon.png"),
                 .process("Markdown/Resources")
             ]
         ),
         .testTarget(
-            name: "SimpleEditTests",
-            dependencies: ["SimpleEdit"],
-            path: "SimpleEditTests"
+            name: "MDViewTests",
+            dependencies: ["MDView"],
+            path: "MDViewTests"
         )
     ]
 )

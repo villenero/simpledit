@@ -24,7 +24,7 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
             defer: false
         )
         window.minSize = NSSize(width: 400, height: 300)
-        window.title = "SimpleEdit"
+        window.title = "MDView"
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
 
@@ -84,7 +84,7 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
     }
 
     private func setupWelcomeView() {
-        welcomeView = NSView()
+        welcomeView = PassthroughView()
         welcomeView.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(welcomeView)
 
@@ -134,7 +134,7 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         welcomeView.isHidden = false
         tabBar.isHidden = true
         editorViewController.view.isHidden = true
-        window?.title = "SimpleEdit"
+        window?.title = "MDView"
         window?.representedURL = nil
     }
 
@@ -216,7 +216,7 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
 
     private func updateWindowTitle() {
         guard selectedIndex >= 0, selectedIndex < documents.count else {
-            window?.title = "SimpleEdit"
+            window?.title = "MDView"
             return
         }
         let doc = documents[selectedIndex]
@@ -323,6 +323,14 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
 
     func showWindow() {
         window?.makeKeyAndOrderFront(nil)
+    }
+}
+
+// MARK: - Passthrough View (lets drags reach the container underneath)
+
+private class PassthroughView: NSView {
+    override func hitTest(_ aPoint: NSPoint) -> NSView? {
+        return nil
     }
 }
 
