@@ -124,26 +124,43 @@ Toggle with `Cmd+B`. MDView extracts all headings from your document and builds 
 └─────────────────┴──────────────────────────────────┘
 ```
 
-Click any heading to jump directly to that section. The sidebar is resizable (drag the edge) and code-block-aware --- it won't pick up `#` inside fenced blocks.
+Click any heading to jump directly to that section. The sidebar is resizable (drag the grip handle) and code-block-aware --- it won't pick up `#` inside fenced blocks. Outline state is preserved per tab.
 
-### Multi-Document Tabs
+### Chrome-style Tabs
 
-Open multiple files in a single window. Each document gets its own tab with a close button:
+Open multiple files in a single window with Chrome-style tabs in the title bar. Each tab shows a file type icon (MD/TXT), a truncated title with fade effect, and a close button. Tabs resize dynamically to share available space equally.
 
 ```
-┌─────────────────┬──────────────┬──────────────┬─────────────────────┐
-│ ☰ │ README.md ✕ │ CHANGELOG ✕  │ API.md ✕     │  🔍 search  3/7  │
-├─────────────────┴──────────────┴──────────────┴─────────────────────┤
-│                                                                     │
-│  # API Reference                                                    │
-│                                                                     │
-│  ## Authentication                                                  │
-│  All requests require a Bearer token...                             │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│ ◆ Elegant     │ Markdown │ 142 lines │ 1,208 words │ UTF-8          │
-└─────────────────────────────────────────────────────────────────────┘
+┌─── ─ ─ ──┬──────────────┬──────────────┬──────────────────────────┐
+│ ● ● ●    │ README.md  ✕ │ CHANGELOG  ✕ │ API.md  ✕               │
+├───────┬───┴──────────────┴──────────────┴──────────────────────────┤
+│ ☰  ↻  │ ~/projects/myapp/README.md        🔍 search  3/7    (i)  │
+├───────┴───────────────────────────────────────────────────────────┤
+│                                                                    │
+│  # API Reference                                                   │
+│                                                                    │
+│  ## Authentication                                                 │
+│  All requests require a Bearer token...                            │
+│                                                                    │
+├────────────────────────────────────────────────────────────────────┤
+│ 🎨 Elegant ▾                                  ✏️ Open in… ▾       │
+└────────────────────────────────────────────────────────────────────┘
 ```
+
+Cycle between tabs with `Ctrl+Tab` and `Ctrl+Shift+Tab`.
+
+### Open in External Editor
+
+The status bar includes an **Open in...** dropdown that detects installed text editors on your system and lets you open the current file directly in any of them:
+
+- VS Code, Cursor, Zed, Sublime Text
+- Xcode, BBEdit, TextMate, Nova
+- CotEditor, Typora, TextEdit
+- ...and more
+
+### Reload
+
+Click the reload button in the toolbar to re-read the current file from disk --- useful when a file has been modified externally.
 
 ### Search with Live Counter
 
@@ -166,11 +183,11 @@ The current encoding is always visible in the status bar.
 
 ### Status Bar
 
-Everything you need at a glance:
+The status bar shows a **theme selector** on the left and the **editor dropdown** on the right. File statistics (mode, lines, words, characters, encoding) are accessible via the **info button** in the toolbar.
 
-```
-◆ Nord │ Markdown │ 847 lines │ 6,203 words │ 38,491 chars │ UTF-8
-```
+### Drag & Drop
+
+Drop any `.md`, `.markdown`, `.mkd`, or `.txt` file onto the window to open it in a new tab. Drop multiple files at once to open them all.
 
 ### Preferences
 
@@ -190,6 +207,8 @@ Everything you need at a glance:
 | Close tab | `Cmd+W` |
 | Find | `Cmd+F` |
 | Toggle outline | `Cmd+B` |
+| Next tab | `Ctrl+Tab` |
+| Previous tab | `Ctrl+Shift+Tab` |
 | Preferences | `Cmd+,` |
 | Print | `Cmd+P` |
 | Light theme | `Cmd+1` |
@@ -207,7 +226,7 @@ Everything you need at a glance:
 ### From source
 
 ```bash
-git clone https://github.com/your-user/MDView.git
+git clone https://github.com/villenero/mdview.git
 cd MDView
 make app
 cp -R dist/MDView.app /Applications/
