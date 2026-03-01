@@ -24,11 +24,13 @@ class StatusBarView: NSView {
     private func setup() {
         wantsLayer = true
         layer?.masksToBounds = false
-        layer?.backgroundColor = NSColor(white: 0.93, alpha: 1.0).cgColor
+        layer?.backgroundColor = ChromeScheme.current.statusBar.cgColor
+
+        NotificationCenter.default.addObserver(self, selector: #selector(schemeDidChange), name: ChromeScheme.changedNotification, object: nil)
 
         // Palette icon for themes
         styleIcon.image = NSImage(systemSymbolName: "paintpalette", accessibilityDescription: "Theme")
-        styleIcon.contentTintColor = .secondaryLabelColor
+        styleIcon.contentTintColor = ChromeScheme.current.statusBarIconTint
         styleIcon.imageScaling = .scaleProportionallyDown
         styleIcon.translatesAutoresizingMaskIntoConstraints = false
         addSubview(styleIcon)
@@ -50,7 +52,7 @@ class StatusBarView: NSView {
 
         // Pencil icon for editors (right side)
         editorIcon.image = NSImage(systemSymbolName: "pencil", accessibilityDescription: "Open in editor")
-        editorIcon.contentTintColor = .secondaryLabelColor
+        editorIcon.contentTintColor = ChromeScheme.current.statusBarIconTint
         editorIcon.imageScaling = .scaleProportionallyDown
         editorIcon.translatesAutoresizingMaskIntoConstraints = false
         addSubview(editorIcon)
@@ -164,10 +166,18 @@ class StatusBarView: NSView {
     }
 
     override func updateLayer() {
-        if NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-            layer?.backgroundColor = NSColor(white: 0.18, alpha: 1.0).cgColor
-        } else {
-            layer?.backgroundColor = NSColor(white: 0.93, alpha: 1.0).cgColor
-        }
+        let scheme = ChromeScheme.current
+        layer?.backgroundColor = scheme.statusBar.cgColor
+        styleIcon.contentTintColor = scheme.statusBarIconTint
+        editorIcon.contentTintColor = scheme.statusBarIconTint
+
+        let popupAppearance = NSAppearance(named: scheme.isDark ? .darkAqua : .aqua)
+        stylePopUp.appearance = popupAppearance
+        editorPopUp.appearance = popupAppearance
+    }
+
+    @objc private func schemeDidChange() {
+        needsDisplay = true
+        layer?.setNeedsDisplay()
     }
 }

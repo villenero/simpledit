@@ -10,14 +10,17 @@ class OutlineView: NSView {
 
     var onItemSelected: ((OutlineItem) -> Void)?
     var onResize: ((CGFloat) -> Void)?
-
     private let scrollView = NSScrollView()
     private let stackView = NSStackView()
     private var items: [OutlineItem] = []
     private let resizeHandle = OutlineResizeHandle()
 
+    private let headerBar = NSView()
+    private let headerIcon = NSImageView()
+    private let headerLabel = NSTextField(labelWithString: "Outline")
     static let minWidth: CGFloat = 140
     static let maxWidth: CGFloat = 400
+    private let headerHeight: CGFloat = 28
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -33,11 +36,23 @@ class OutlineView: NSView {
         wantsLayer = true
         updateBackground()
 
-        let header = NSTextField(labelWithString: "Outline")
-        header.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        header.textColor = .secondaryLabelColor
-        header.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(header)
+        NotificationCenter.default.addObserver(self, selector: #selector(schemeDidChange), name: ChromeScheme.changedNotification, object: nil)
+
+        // Header bar
+        headerBar.wantsLayer = true
+        headerBar.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(headerBar)
+
+        headerIcon.image = NSImage(systemSymbolName: "list.bullet.indent", accessibilityDescription: "Outline")
+        headerIcon.imageScaling = .scaleProportionallyDown
+        headerIcon.translatesAutoresizingMaskIntoConstraints = false
+        headerBar.addSubview(headerIcon)
+
+        headerLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        headerLabel.translatesAutoresizingMaskIntoConstraints = false
+        headerBar.addSubview(headerLabel)
+
+        updateHeaderColors()
 
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
@@ -72,10 +87,20 @@ class OutlineView: NSView {
         addSubview(resizeHandle)
 
         NSLayoutConstraint.activate([
-            header.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            header.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            headerBar.topAnchor.constraint(equalTo: topAnchor),
+            headerBar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            headerBar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            headerBar.heightAnchor.constraint(equalToConstant: headerHeight),
 
-            scrollView.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 6),
+            headerIcon.leadingAnchor.constraint(equalTo: headerBar.leadingAnchor, constant: 8),
+            headerIcon.centerYAnchor.constraint(equalTo: headerBar.centerYAnchor),
+            headerIcon.widthAnchor.constraint(equalToConstant: 14),
+            headerIcon.heightAnchor.constraint(equalToConstant: 14),
+
+            headerLabel.leadingAnchor.constraint(equalTo: headerIcon.trailingAnchor, constant: 5),
+            headerLabel.centerYAnchor.constraint(equalTo: headerBar.centerYAnchor),
+
+            scrollView.topAnchor.constraint(equalTo: headerBar.bottomAnchor),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -96,6 +121,13 @@ class OutlineView: NSView {
         ])
     }
 
+    private func updateHeaderColors() {
+        let scheme = ChromeScheme.current
+        headerBar.layer?.backgroundColor = (scheme.outline.shadow(withLevel: 0.12) ?? scheme.outline).cgColor
+        headerLabel.textColor = scheme.outlineSecondaryText
+        headerIcon.contentTintColor = scheme.outlineSecondaryText
+    }
+
     func update(items: [OutlineItem]) {
         self.items = items
 
@@ -104,8 +136,9 @@ class OutlineView: NSView {
             view.removeFromSuperview()
         }
 
+        let minLevel = items.map(\.level).min() ?? 1
         for (index, item) in items.enumerated() {
-            let button = OutlineItemButton(item: item, index: index)
+            let button = OutlineItemButton(item: item, index: index, minLevel: minLevel)
             button.target = self
             button.action = #selector(itemClicked(_:))
             button.translatesAutoresizingMaskIntoConstraints = false
@@ -122,15 +155,18 @@ class OutlineView: NSView {
     }
 
     private func updateBackground() {
-        if NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-            layer?.backgroundColor = NSColor(white: 0.13, alpha: 1.0).cgColor
-        } else {
-            layer?.backgroundColor = NSColor(white: 0.95, alpha: 1.0).cgColor
-        }
+        let scheme = ChromeScheme.current
+        layer?.backgroundColor = scheme.outline.cgColor
+        updateHeaderColors()
     }
 
     override func updateLayer() {
         updateBackground()
+    }
+
+    @objc private func schemeDidChange() {
+        updateBackground()
+        update(items: items)
     }
 }
 
@@ -144,11 +180,11 @@ private class OutlineItemButton: NSButton {
     private var isHovered = false
     private var trackingArea: NSTrackingArea?
 
-    init(item: OutlineItem, index: Int) {
+    init(item: OutlineItem, index: Int, minLevel: Int) {
         self.index = index
         self.itemLevel = item.level
         self.itemTitle = item.title
-        self.indent = CGFloat(max(0, item.level - 1)) * 16
+        self.indent = CGFloat(max(0, item.level - minLevel)) * 16
         super.init(frame: .zero)
 
         isBordered = false
@@ -171,7 +207,8 @@ private class OutlineItemButton: NSButton {
         let textFont = itemLevel == 1
             ? NSFont.systemFont(ofSize: 12, weight: .medium)
             : NSFont.systemFont(ofSize: 12)
-        let textColor: NSColor = itemLevel == 1 ? .labelColor : .secondaryLabelColor
+        let scheme = ChromeScheme.current
+        let textColor: NSColor = itemLevel == 1 ? scheme.outlineText : scheme.outlineSecondaryText
 
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.firstLineHeadIndent = 12 + indent
@@ -244,10 +281,7 @@ private class OutlineResizeHandle: NSView {
     }
 
     private func updateBackground() {
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        layer?.backgroundColor = isDark
-            ? NSColor(white: 0.18, alpha: 1.0).cgColor
-            : NSColor(white: 0.93, alpha: 1.0).cgColor
+        layer?.backgroundColor = ChromeScheme.current.outlineResizeHandle.cgColor
     }
 
     override func updateLayer() {

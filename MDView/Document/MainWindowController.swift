@@ -128,6 +128,7 @@ class MainWindowController: NSWindowController, TabBarViewDelegate {
         outlineView.onResize = { [weak self] newWidth in
             self?.resizeOutline(to: newWidth)
         }
+
     }
 
     private func setupWelcomeView() {
@@ -483,23 +484,31 @@ private class TitlebarBackgroundView: NSView {
         super.init(frame: frame)
         wantsLayer = true
         updateBackground()
+        NotificationCenter.default.addObserver(self, selector: #selector(schemeDidChange), name: ChromeScheme.changedNotification, object: nil)
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         wantsLayer = true
         updateBackground()
+        NotificationCenter.default.addObserver(self, selector: #selector(schemeDidChange), name: ChromeScheme.changedNotification, object: nil)
+    }
+
+    override func hitTest(_ aPoint: NSPoint) -> NSView? {
+        return nil
     }
 
     private func updateBackground() {
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        layer?.backgroundColor = isDark
-            ? NSColor(white: 0.15, alpha: 1.0).cgColor
-            : NSColor(white: 0.90, alpha: 1.0).cgColor
+        layer?.backgroundColor = ChromeScheme.current.titleBar.cgColor
     }
 
     override func updateLayer() {
         updateBackground()
+    }
+
+    @objc private func schemeDidChange() {
+        needsDisplay = true
+        layer?.setNeedsDisplay()
     }
 }
 

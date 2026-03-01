@@ -126,6 +126,22 @@ Toggle with `Cmd+B`. MDView extracts all headings from your document and builds 
 
 Click any heading to jump directly to that section. The sidebar is resizable (drag the grip handle) and code-block-aware --- it won't pick up `#` inside fenced blocks. Outline state is preserved per tab.
 
+### 5 Color Schemes for UI Chrome
+
+Customize the look of tabs, toolbar, sidebar, and status bar. Switch from Preferences (`Cmd+,`):
+
+```
+Scheme      Vibe
+──────────────────────────────────
+Light       Default macOS grays
+Dark        Dark grays
+Ocean       Deep blue / teal tones
+Rose        Warm pink / mauve tones
+Forest      Earthy green tones
+```
+
+The selected scheme persists across launches. All chrome elements update instantly.
+
 ### Chrome-style Tabs
 
 Open multiple files in a single window with Chrome-style tabs in the title bar. Each tab shows a file type icon (MD/TXT), a truncated title with fade effect, and a close button. Tabs resize dynamically to share available space equally.
@@ -193,6 +209,7 @@ Drop any `.md`, `.markdown`, `.mkd`, or `.txt` file onto the window to open it i
 
 `Cmd+,` opens the preferences panel:
 
+- **Color scheme**: Light, Dark, Ocean, Rose, or Forest
 - **Font size**: 9pt to 24pt slider
 - **Tab size**: 2, 4, or 8 spaces
 - **Word wrap**: On/Off toggle

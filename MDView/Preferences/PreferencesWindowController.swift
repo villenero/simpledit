@@ -4,6 +4,7 @@ class PreferencesWindowController: NSWindowController {
 
     static let shared = PreferencesWindowController()
 
+    private let chromeSchemePopup = NSPopUpButton()
     private let fontSizeSlider = NSSlider()
     private let fontSizeLabel = NSTextField(labelWithString: "13 pt")
     private let tabSizePopup = NSPopUpButton()
@@ -12,7 +13,7 @@ class PreferencesWindowController: NSWindowController {
 
     private init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 240),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 280),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: true
@@ -31,7 +32,20 @@ class PreferencesWindowController: NSWindowController {
     }
 
     private func setupContent() {
-        let contentView = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 240))
+        let contentView = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 280))
+
+        // Color scheme — row at y=230
+        let schemeLabel = NSTextField(labelWithString: "Color Scheme:")
+        schemeLabel.frame = NSRect(x: 20, y: 230, width: 90, height: 20)
+        contentView.addSubview(schemeLabel)
+
+        chromeSchemePopup.frame = NSRect(x: 110, y: 228, width: 150, height: 24)
+        for scheme in ChromeScheme.all {
+            chromeSchemePopup.addItem(withTitle: scheme.name)
+        }
+        chromeSchemePopup.target = self
+        chromeSchemePopup.action = #selector(chromeSchemeChanged(_:))
+        contentView.addSubview(chromeSchemePopup)
 
         // Font size — row at y=190
         let fontLabel = NSTextField(labelWithString: "Font Size:")
@@ -85,6 +99,11 @@ class PreferencesWindowController: NSWindowController {
     private func loadFromDefaults() {
         let defaults = UserDefaults.standard
 
+        let schemeName = defaults.string(forKey: "ChromeScheme") ?? "Light"
+        if let index = ChromeScheme.all.firstIndex(where: { $0.name == schemeName }) {
+            chromeSchemePopup.selectItem(at: index)
+        }
+
         let fontSize = defaults.object(forKey: "FontSize") as? Double ?? 13
         fontSizeSlider.doubleValue = fontSize
         fontSizeLabel.stringValue = "\(Int(fontSize)) pt"
@@ -100,6 +119,14 @@ class PreferencesWindowController: NSWindowController {
     }
 
     // MARK: - Actions
+
+    @objc private func chromeSchemeChanged(_ sender: NSPopUpButton) {
+        let index = sender.indexOfSelectedItem
+        guard index >= 0, index < ChromeScheme.all.count else { return }
+        let scheme = ChromeScheme.all[index]
+        UserDefaults.standard.set(scheme.name, forKey: "ChromeScheme")
+        NotificationCenter.default.post(name: ChromeScheme.changedNotification, object: nil)
+    }
 
     @objc private func fontSizeChanged(_ sender: NSSlider) {
         let size = Int(sender.doubleValue)

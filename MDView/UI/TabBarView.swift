@@ -39,7 +39,9 @@ class TabBarView: NSView {
 
     private func setup() {
         wantsLayer = true
-        layer?.backgroundColor = NSColor(white: 0.90, alpha: 1.0).cgColor
+        layer?.backgroundColor = ChromeScheme.current.tabBarBackground.cgColor
+
+        NotificationCenter.default.addObserver(self, selector: #selector(schemeDidChange), name: ChromeScheme.changedNotification, object: nil)
 
         let separator = NSBox()
         separator.boxType = .separator
@@ -127,14 +129,15 @@ class TabBarView: NSView {
         let iconName = tab.isMarkdown ? "doc.richtext" : "doc.text"
         let iconView = NSImageView()
         iconView.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
-        iconView.contentTintColor = tab.isSelected ? .labelColor : .tertiaryLabelColor
+        let scheme = ChromeScheme.current
+        iconView.contentTintColor = tab.isSelected ? scheme.activeTabText : scheme.inactiveTabText
         iconView.imageScaling = .scaleProportionallyDown
         iconView.translatesAutoresizingMaskIntoConstraints = false
 
         // Label with fade mask
         let label = NSTextField(labelWithString: tab.title)
         label.font = NSFont.systemFont(ofSize: 12, weight: tab.isSelected ? .medium : .regular)
-        label.textColor = tab.isSelected ? .labelColor : .secondaryLabelColor
+        label.textColor = tab.isSelected ? scheme.activeTabText : scheme.inactiveTabText
         label.lineBreakMode = .byClipping
         label.translatesAutoresizingMaskIntoConstraints = false
 
@@ -211,11 +214,12 @@ class TabBarView: NSView {
     }
 
     override func updateLayer() {
-        if NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-            layer?.backgroundColor = NSColor(white: 0.15, alpha: 1.0).cgColor
-        } else {
-            layer?.backgroundColor = NSColor(white: 0.90, alpha: 1.0).cgColor
-        }
+        layer?.backgroundColor = ChromeScheme.current.tabBarBackground.cgColor
+    }
+
+    @objc private func schemeDidChange() {
+        needsDisplay = true
+        rebuildTabs()
     }
 }
 
@@ -252,7 +256,9 @@ class ToolbarView: NSView {
 
     private func setup() {
         wantsLayer = true
-        layer?.backgroundColor = NSColor(white: 0.93, alpha: 1.0).cgColor
+        layer?.backgroundColor = ChromeScheme.current.toolbar.cgColor
+
+        NotificationCenter.default.addObserver(self, selector: #selector(schemeDidChange), name: ChromeScheme.changedNotification, object: nil)
 
         outlineButton.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "Toggle outline")
         outlineButton.imageScaling = .scaleProportionallyDown
@@ -260,7 +266,7 @@ class ToolbarView: NSView {
         outlineButton.bezelStyle = .accessoryBarAction
         outlineButton.target = self
         outlineButton.action = #selector(outlineButtonClicked)
-        outlineButton.contentTintColor = .secondaryLabelColor
+        outlineButton.contentTintColor = ChromeScheme.current.toolbarIconTint
         outlineButton.toolTip = "Show outline"
         outlineButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(outlineButton)
@@ -271,13 +277,13 @@ class ToolbarView: NSView {
         reloadButton.bezelStyle = .accessoryBarAction
         reloadButton.target = self
         reloadButton.action = #selector(reloadButtonClicked)
-        reloadButton.contentTintColor = .secondaryLabelColor
+        reloadButton.contentTintColor = ChromeScheme.current.toolbarIconTint
         reloadButton.toolTip = "Reload"
         reloadButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(reloadButton)
 
         pathLabel.font = NSFont.systemFont(ofSize: 11)
-        pathLabel.textColor = .tertiaryLabelColor
+        pathLabel.textColor = ChromeScheme.current.toolbarText
         pathLabel.lineBreakMode = .byTruncatingMiddle
         pathLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(pathLabel)
@@ -416,11 +422,17 @@ class ToolbarView: NSView {
     }
 
     override func updateLayer() {
-        if NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-            layer?.backgroundColor = NSColor(white: 0.18, alpha: 1.0).cgColor
-        } else {
-            layer?.backgroundColor = NSColor(white: 0.93, alpha: 1.0).cgColor
-        }
+        let scheme = ChromeScheme.current
+        layer?.backgroundColor = scheme.toolbar.cgColor
+        outlineButton.contentTintColor = scheme.toolbarIconTint
+        reloadButton.contentTintColor = scheme.toolbarIconTint
+        pathLabel.textColor = scheme.toolbarText
+        infoButton.contentTintColor = scheme.toolbarIconTint
+    }
+
+    @objc private func schemeDidChange() {
+        needsDisplay = true
+        layer?.setNeedsDisplay()
     }
 }
 
@@ -491,17 +503,10 @@ private class TabButtonView: NSView {
     }
 
     private func updateBackground() {
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        if isSelected {
-            // Match toolbar color so active tab blends into toolbar
-            layer?.backgroundColor = isDark
-                ? NSColor(white: 0.18, alpha: 1.0).cgColor
-                : NSColor(white: 0.93, alpha: 1.0).cgColor
-        } else {
-            layer?.backgroundColor = isDark
-                ? NSColor(white: 0.15, alpha: 1.0).cgColor
-                : NSColor(white: 0.90, alpha: 1.0).cgColor
-        }
+        let scheme = ChromeScheme.current
+        layer?.backgroundColor = isSelected
+            ? scheme.activeTab.cgColor
+            : scheme.inactiveTab.cgColor
     }
 
     override func updateLayer() {
@@ -568,7 +573,7 @@ private class CloseButton: NSButton {
         imageScaling = .scaleProportionallyDown
         isBordered = false
         (cell as? NSButtonCell)?.imageScaling = .scaleProportionallyDown
-        contentTintColor = .tertiaryLabelColor
+        contentTintColor = ChromeScheme.current.inactiveTabText
     }
 
     required init?(coder: NSCoder) {
