@@ -187,8 +187,8 @@ private class OutlineItemButton: NSButton {
         self.indent = CGFloat(max(0, item.level - minLevel)) * 16
         super.init(frame: .zero)
 
+        wantsLayer = true
         isBordered = false
-        // Prevent default button flash by using momentary change type
         setButtonType(.momentaryChange)
         (cell as? NSButtonCell)?.lineBreakMode = .byTruncatingTail
         (cell as? NSButtonCell)?.highlightsBy = []
@@ -245,11 +245,16 @@ private class OutlineItemButton: NSButton {
     override func mouseEntered(with event: NSEvent) {
         isHovered = true
         updateTitle()
+        let scheme = ChromeScheme.current
+        layer?.backgroundColor = (scheme.isDark
+            ? scheme.outline.highlight(withLevel: 0.08)
+            : scheme.outline.shadow(withLevel: 0.06))?.cgColor
     }
 
     override func mouseExited(with event: NSEvent) {
         isHovered = false
         updateTitle()
+        layer?.backgroundColor = nil
     }
 
     override func mouseDown(with event: NSEvent) {

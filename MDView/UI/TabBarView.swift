@@ -82,7 +82,7 @@ class TabBarView: NSView {
     }
 
     private var tabWidthConstraints: [NSLayoutConstraint] = []
-    private let maxTabWidth: CGFloat = 150
+    private let maxTabWidth: CGFloat = 230
     private let minTabWidth: CGFloat = 40
 
     private func rebuildTabs() {
@@ -191,7 +191,9 @@ class TabBarView: NSView {
 
     /// Handle a click at a point in the tab bar's own coordinate system.
     /// Used by MDViewWindow.sendEvent to bypass titlebar hitTest issues.
-    func handleClickAtPoint(_ pointInSelf: NSPoint) {
+    /// Returns true if a tab or close button was hit.
+    @discardableResult
+    func handleClickAtPoint(_ pointInSelf: NSPoint) -> Bool {
         let pointInStack = stackView.convert(pointInSelf, from: self)
         for button in tabButtons {
             guard button.frame.contains(pointInStack) else { continue }
@@ -201,12 +203,13 @@ class TabBarView: NSView {
             for subview in button.subviews {
                 if subview is NSButton, subview.frame.contains(pointInButton) {
                     delegate?.tabBar(self, didCloseTabAt: tabButton.index)
-                    return
+                    return true
                 }
             }
             delegate?.tabBar(self, didSelectTabAt: tabButton.index)
-            return
+            return true
         }
+        return false
     }
 
     @objc private func closeTabClicked(_ sender: CloseButton) {
@@ -230,12 +233,12 @@ class ToolbarView: NSView {
     weak var tabBarDelegate: TabBarViewDelegate?
     weak var parentTabBar: TabBarView?
 
-    private let outlineButton = NSButton()
-    private let reloadButton = NSButton()
+    private let outlineButton = HoverButton()
+    private let reloadButton = HoverButton()
     private let pathLabel = NSTextField(labelWithString: "")
     private let searchField = NSSearchField()
     private let searchCountLabel = NSTextField(labelWithString: "")
-    private let infoButton = NSButton()
+    private let infoButton = HoverButton()
 
     // Info data
     private var infoWords = 0
@@ -472,6 +475,8 @@ private class TabButtonView: NSView {
     let index: Int
     let isSelected: Bool
     weak var tabBar: TabBarView?
+    private var isHovered = false
+    private var trackingArea: NSTrackingArea?
 
     override var mouseDownCanMoveWindow: Bool { false }
 
@@ -490,6 +495,23 @@ private class TabButtonView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea { removeTrackingArea(existing) }
+        trackingArea = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow], owner: self)
+        addTrackingArea(trackingArea!)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        updateBackground()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        updateBackground()
+    }
+
     override func mouseDown(with event: NSEvent) {
         let location = convert(event.locationInWindow, from: nil)
         // Check if click is on the close button — if so, let it handle it
@@ -504,9 +526,15 @@ private class TabButtonView: NSView {
 
     private func updateBackground() {
         let scheme = ChromeScheme.current
-        layer?.backgroundColor = isSelected
-            ? scheme.activeTab.cgColor
-            : scheme.inactiveTab.cgColor
+        let base = isSelected ? scheme.activeTab : scheme.inactiveTab
+        if isHovered && !isSelected {
+            let hovered = scheme.isDark
+                ? base.highlight(withLevel: 0.08) ?? base
+                : base.shadow(withLevel: 0.06) ?? base
+            layer?.backgroundColor = hovered.cgColor
+        } else {
+            layer?.backgroundColor = base.cgColor
+        }
     }
 
     override func updateLayer() {
@@ -563,24 +591,67 @@ private class FadingLabelView: NSView {
 
 private class CloseButton: NSButton {
     let index: Int
+    private var trackingArea: NSTrackingArea?
+    private let normalColor: NSColor
 
     override var mouseDownCanMoveWindow: Bool { false }
 
     init(index: Int) {
         self.index = index
+        self.normalColor = ChromeScheme.current.inactiveTabText
         super.init(frame: .zero)
         image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "Close tab")
         imageScaling = .scaleProportionallyDown
         isBordered = false
         (cell as? NSButtonCell)?.imageScaling = .scaleProportionallyDown
-        contentTintColor = ChromeScheme.current.inactiveTabText
+        contentTintColor = normalColor
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea { removeTrackingArea(existing) }
+        trackingArea = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow], owner: self)
+        addTrackingArea(trackingArea!)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        contentTintColor = ChromeScheme.current.activeTabText
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        contentTintColor = normalColor
+    }
+
     override func mouseDown(with event: NSEvent) {
         sendAction(action, to: target)
+    }
+}
+
+// MARK: - HoverButton
+
+class HoverButton: NSButton {
+    private var trackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea { removeTrackingArea(existing) }
+        trackingArea = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow], owner: self)
+        addTrackingArea(trackingArea!)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        let scheme = ChromeScheme.current
+        let hoverColor = scheme.isDark
+            ? (contentTintColor?.highlight(withLevel: 0.3) ?? contentTintColor)
+            : (contentTintColor?.shadow(withLevel: 0.3) ?? contentTintColor)
+        animator().contentTintColor = hoverColor
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        animator().contentTintColor = ChromeScheme.current.toolbarIconTint
     }
 }

@@ -469,8 +469,17 @@ private class MDViewWindow: NSWindow {
            let tabBar = tabBarView, !tabBar.isHidden {
             let pointInTabBar = tabBar.convert(event.locationInWindow, from: nil)
             if tabBar.bounds.contains(pointInTabBar) {
-                tabBar.handleClickAtPoint(pointInTabBar)
-                return
+                if !isKeyWindow || !NSApp.isActive {
+                    // Window not active — let super handle full activation,
+                    // then dispatch tab click so traffic lights update first
+                    super.sendEvent(event)
+                    tabBar.handleClickAtPoint(pointInTabBar)
+                    return
+                }
+                if tabBar.handleClickAtPoint(pointInTabBar) {
+                    return
+                }
+                // Click on empty tab bar space — fall through for normal window behavior
             }
         }
         super.sendEvent(event)
