@@ -477,6 +477,7 @@ private class TabButtonView: NSView {
     weak var tabBar: TabBarView?
     private var isHovered = false
     private var trackingArea: NSTrackingArea?
+    private let accentLine = CALayer()
 
     override var mouseDownCanMoveWindow: Bool { false }
 
@@ -488,6 +489,10 @@ private class TabButtonView: NSView {
         layer?.cornerRadius = 8
         layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]  // top corners only (flipped coords)
         layer?.masksToBounds = true
+
+        accentLine.isHidden = !isSelected
+        layer?.addSublayer(accentLine)
+
         updateBackground()
     }
 
@@ -524,6 +529,11 @@ private class TabButtonView: NSView {
         tabBar?.handleTabClick(at: index)
     }
 
+    override func layout() {
+        super.layout()
+        accentLine.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 2)
+    }
+
     private func updateBackground() {
         let scheme = ChromeScheme.current
         let base = isSelected ? scheme.activeTab : scheme.inactiveTab
@@ -535,6 +545,8 @@ private class TabButtonView: NSView {
         } else {
             layer?.backgroundColor = base.cgColor
         }
+        accentLine.backgroundColor = scheme.accent.cgColor
+        accentLine.isHidden = !isSelected
     }
 
     override func updateLayer() {

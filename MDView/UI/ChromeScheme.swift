@@ -18,6 +18,7 @@ struct ChromeScheme {
     let statusBar: NSColor
     let statusBarText: NSColor
     let statusBarIconTint: NSColor
+    let accent: NSColor
 
     static let light = ChromeScheme(
         name: "Light",
@@ -25,18 +26,19 @@ struct ChromeScheme {
         tabBarBackground: NSColor(white: 0.90, alpha: 1.0),
         activeTab: NSColor(white: 0.93, alpha: 1.0),
         inactiveTab: NSColor(white: 0.90, alpha: 1.0),
-        activeTabText: .labelColor,
-        inactiveTabText: .secondaryLabelColor,
+        activeTabText: NSColor(white: 0.10, alpha: 1.0),
+        inactiveTabText: NSColor(white: 0.40, alpha: 1.0),
         toolbar: NSColor(white: 0.93, alpha: 1.0),
-        toolbarText: .tertiaryLabelColor,
-        toolbarIconTint: .secondaryLabelColor,
+        toolbarText: NSColor(white: 0.45, alpha: 1.0),
+        toolbarIconTint: NSColor(white: 0.35, alpha: 1.0),
         outline: NSColor(white: 0.95, alpha: 1.0),
-        outlineText: .labelColor,
-        outlineSecondaryText: .secondaryLabelColor,
+        outlineText: NSColor(white: 0.10, alpha: 1.0),
+        outlineSecondaryText: NSColor(white: 0.40, alpha: 1.0),
         outlineResizeHandle: NSColor(white: 0.93, alpha: 1.0),
         statusBar: NSColor(white: 0.93, alpha: 1.0),
-        statusBarText: .secondaryLabelColor,
-        statusBarIconTint: .secondaryLabelColor
+        statusBarText: NSColor(white: 0.35, alpha: 1.0),
+        statusBarIconTint: NSColor(white: 0.35, alpha: 1.0),
+        accent: NSColor(red: 0.30, green: 0.55, blue: 0.95, alpha: 1.0)
     )
 
     static let dark = ChromeScheme(
@@ -56,7 +58,8 @@ struct ChromeScheme {
         outlineResizeHandle: NSColor(white: 0.18, alpha: 1.0),
         statusBar: NSColor(white: 0.18, alpha: 1.0),
         statusBarText: NSColor(white: 0.60, alpha: 1.0),
-        statusBarIconTint: NSColor(white: 0.60, alpha: 1.0)
+        statusBarIconTint: NSColor(white: 0.60, alpha: 1.0),
+        accent: NSColor(red: 0.90, green: 0.55, blue: 0.20, alpha: 1.0)
     )
 
     static let ocean = ChromeScheme(
@@ -76,7 +79,8 @@ struct ChromeScheme {
         outlineResizeHandle: NSColor(red: 0.17, green: 0.24, blue: 0.33, alpha: 1.0),
         statusBar: NSColor(red: 0.17, green: 0.24, blue: 0.33, alpha: 1.0),
         statusBarText: NSColor(red: 0.50, green: 0.65, blue: 0.80, alpha: 1.0),
-        statusBarIconTint: NSColor(red: 0.40, green: 0.65, blue: 0.80, alpha: 1.0)
+        statusBarIconTint: NSColor(red: 0.40, green: 0.65, blue: 0.80, alpha: 1.0),
+        accent: NSColor(red: 0.35, green: 0.75, blue: 0.90, alpha: 1.0)
     )
 
     static let rose = ChromeScheme(
@@ -96,7 +100,8 @@ struct ChromeScheme {
         outlineResizeHandle: NSColor(red: 0.32, green: 0.20, blue: 0.25, alpha: 1.0),
         statusBar: NSColor(red: 0.32, green: 0.20, blue: 0.25, alpha: 1.0),
         statusBarText: NSColor(red: 0.65, green: 0.50, blue: 0.58, alpha: 1.0),
-        statusBarIconTint: NSColor(red: 0.80, green: 0.50, blue: 0.60, alpha: 1.0)
+        statusBarIconTint: NSColor(red: 0.80, green: 0.50, blue: 0.60, alpha: 1.0),
+        accent: NSColor(red: 0.90, green: 0.45, blue: 0.55, alpha: 1.0)
     )
 
     static let forest = ChromeScheme(
@@ -116,7 +121,8 @@ struct ChromeScheme {
         outlineResizeHandle: NSColor(red: 0.19, green: 0.27, blue: 0.20, alpha: 1.0),
         statusBar: NSColor(red: 0.19, green: 0.27, blue: 0.20, alpha: 1.0),
         statusBarText: NSColor(red: 0.50, green: 0.65, blue: 0.50, alpha: 1.0),
-        statusBarIconTint: NSColor(red: 0.45, green: 0.70, blue: 0.45, alpha: 1.0)
+        statusBarIconTint: NSColor(red: 0.45, green: 0.70, blue: 0.45, alpha: 1.0),
+        accent: NSColor(red: 0.50, green: 0.80, blue: 0.45, alpha: 1.0)
     )
 
     static let all: [ChromeScheme] = [light, dark, ocean, rose, forest]
