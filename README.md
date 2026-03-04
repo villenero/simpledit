@@ -244,7 +244,7 @@ Drop any `.md`, `.markdown`, `.mkd`, or `.txt` file onto the window to open it i
 
 ```bash
 git clone https://github.com/villenero/mdview.git
-cd MDView
+cd mdview
 make app
 cp -R dist/MDView.app /Applications/
 ```
